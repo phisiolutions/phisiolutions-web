@@ -27,7 +27,11 @@ Web en Next.js con agenda online, pago con Stripe (tarjeta y transferencia en EU
 3. **Base de datos**: crea una base gratuita en [Turso](https://turso.tech) y copia la URL y el token.
 4. **Zoom** (cuenta de pago, para sesiones de más de 40 min): en marketplace.zoom.us crea una app "Server-to-Server OAuth" con el permiso `meeting:write:meeting:admin` y copia los tres datos.
 5. **Email**: en la cuenta de Google de phisiolutions@gmail.com activa la verificación en dos pasos y crea una "contraseña de aplicación" para `SMTP_PASS`.
-6. **Publicar**: importa el repositorio en [Vercel](https://vercel.com), añade las variables de `.env.example` y conecta el dominio.
+6. **Publicar en Netlify** (plan gratuito, admite uso comercial):
+   1. En [app.netlify.com](https://app.netlify.com) entra con tu cuenta de GitHub y pulsa *Add new project > Import an existing project > GitHub*. Elige este repositorio.
+   2. Netlify detecta Next.js y lee `netlify.toml`; no cambies nada y pulsa *Deploy*.
+   3. En *Project configuration > Environment variables* añade todas las variables de `.env.example` con tus valores y vuelve a desplegar (*Deploys > Trigger deploy*).
+   4. Dominio: en *Domain management > Add a domain* puedes comprarlo en Netlify (pagas al año, sin cuota mensual) o conectar uno comprado en otro sitio. Después pon `SITE_URL` con ese dominio.
 7. Prueba primero con claves `sk_test_` y la tarjeta 4242 4242 4242 4242; después cambia a las claves reales.
 
 ## Desarrollo
