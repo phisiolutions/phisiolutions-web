@@ -46,7 +46,10 @@ export default function BookingForm() {
     setSlots(null);
     setSlot(null);
     fetch(`/api/slots?service=${serviceId}&date=${day}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) throw new Error('slots');
+        return r.json();
+      })
       .then((j) => {
         if (cancelled) return;
         const found: string[] = j.slots ?? [];
@@ -57,7 +60,11 @@ export default function BookingForm() {
         }
         setSlots(found);
       })
-      .catch(() => !cancelled && setSlots([]));
+      .catch(() => {
+        if (cancelled) return;
+        setSlots([]);
+        setError('No hemos podido cargar la agenda. Recarga la página o inténtalo más tarde.');
+      });
     return () => {
       cancelled = true;
     };

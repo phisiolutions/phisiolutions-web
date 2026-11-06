@@ -1,4 +1,5 @@
-import { createClient, type Client } from '@libsql/client';
+import type { Client } from '@libsql/client';
+import { createClient as createHttpClient } from '@libsql/client/http';
 import { randomUUID } from 'node:crypto';
 import type { BusyInterval } from './availability';
 
@@ -30,19 +31,32 @@ export interface Booking {
 let client: Client | null = null;
 let ready: Promise<void> | null = null;
 
+function makeClient(url: string, authToken?: string): Client {
+  if (url.startsWith('file:') || url === ':memory:') {
+    // Base de datos local (desarrollo y tests). Se carga solo aquí para no necesitar
+    // el módulo nativo de SQLite en Netlify.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createClient } = require('@libsql/client') as typeof import('@libsql/client');
+    return createClient({ url });
+  }
+  // Turso remoto: cliente HTTP puro, funciona en cualquier servidor.
+  return createHttpClient({ url: url.replace(/^libsql:\/\//, 'https://'), authToken });
+}
+
+export function dbConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL);
+}
+
 export function db(): Client {
   if (!client) {
-    client = createClient({
-      url: process.env.DATABASE_URL ?? 'file:local.db',
-      authToken: process.env.DATABASE_AUTH_TOKEN,
-    });
+    client = makeClient(process.env.DATABASE_URL?.trim() || 'file:local.db', process.env.DATABASE_AUTH_TOKEN?.trim());
   }
   return client;
 }
 
 /** Solo para tests: usa una base de datos nueva. */
 export function resetDbForTests(url: string) {
-  client = createClient({ url });
+  client = makeClient(url);
   ready = null;
 }
 
@@ -77,7 +91,11 @@ export async function ensureSchema() {
         ],
         'write',
       )
-      .then(() => undefined);
+      .then(() => undefined)
+      .catch((e) => {
+        ready = null; // reintenta en la siguiente petición
+        throw e;
+      });
   }
   return ready;
 }

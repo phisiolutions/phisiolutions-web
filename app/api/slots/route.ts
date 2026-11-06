@@ -15,10 +15,15 @@ export async function GET(req: Request) {
   }
   const now = DateTime.utc();
   const day = DateTime.fromISO(date, { zone: AGENDA.timezone });
-  const busy = await busyBetween(
-    day.minus({ days: 1 }).toUTC().toISO()!,
-    day.plus({ days: 2 }).toUTC().toISO()!,
-    now.toISO()!,
-  );
-  return NextResponse.json({ slots: availableSlots(date, service.durationMinutes, busy, now) });
+  try {
+    const busy = await busyBetween(
+      day.minus({ days: 1 }).toUTC().toISO()!,
+      day.plus({ days: 2 }).toUTC().toISO()!,
+      now.toISO()!,
+    );
+    return NextResponse.json({ slots: availableSlots(date, service.durationMinutes, busy, now) });
+  } catch (e) {
+    console.error('Error leyendo la agenda', e);
+    return NextResponse.json({ error: 'No se pudo leer la agenda' }, { status: 500 });
+  }
 }
