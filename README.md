@@ -49,5 +49,5 @@ Para recibir webhooks en local: `stripe listen --forward-to localhost:3000/api/s
 
 - Duración real de cada servicio (ahora 60 min salvo la sesión de 30).
 - IVA y forma de facturar de la LLC a clientes en España: confirmar con el gestor.
-- Textos legales revisados por un profesional y política de cancelación.
+- Textos legales revisados por un profesional y política de cancelación. La política de privacidad debe indicar que los datos se guardan en EE. UU. (Turso, Netlify, Stripe) y con qué garantías.
 - Las sesiones extra de un paquete se agendan por email; se puede añadir autoagenda más adelante.
