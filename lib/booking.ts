@@ -195,6 +195,8 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 /** Marca la reserva como pagada, crea el Zoom y envía la factura al cliente y a Phisiolutions. */
 export async function confirmBooking(bookingId: string, sessionId: string): Promise<void> {
   // Una reserva cancelada por tiempo también se confirma si el pago llega: el dinero ya está cobrado.
+  const before = await getBooking(bookingId);
+  const lateAfterCancel = before?.status === 'cancelled';
   const moved = await transitionStatus(bookingId, ['pending', 'awaiting_transfer', 'cancelled'], 'confirmed');
   const booking = await getBooking(bookingId);
   if (!booking) return;
@@ -230,7 +232,7 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
 
   const fresh = (await getBooking(bookingId))!;
   if (fresh.confirmationSent) return;
-  await sendConfirmationEmails(fresh);
+  await sendConfirmationEmails(fresh, lateAfterCancel);
   await updateBooking(bookingId, { confirmationSent: 1 });
 }
 
@@ -257,7 +259,7 @@ function layout(body: string): string {
     <p style="font-size:13px;color:#33505F;margin-top:32px">Phisiolutions LLC</p></div>`;
 }
 
-export async function sendConfirmationEmails(b: Booking): Promise<void> {
+export async function sendConfirmationEmails(b: Booking, checkOverlap = false): Promise<void> {
   const service = getService(b.serviceId);
   const when = formatLocal(b.startUtc);
   const attachments = await invoiceAttachment(b.invoicePdfUrl);
@@ -287,8 +289,8 @@ export async function sendConfirmationEmails(b: Booking): Promise<void> {
 
   await sendMail({
     to: adminEmail(),
-    subject: `Nueva reserva pagada: ${b.name}, ${service?.name ?? b.serviceId}, ${when}`,
-    html: layout(`<p>Nueva reserva pagada (copia de la factura adjunta).</p>
+    subject: `${checkOverlap ? 'REVISAR posible solape. ' : ''}Nueva reserva pagada: ${b.name}, ${service?.name ?? b.serviceId}, ${when}`,
+    html: layout(`${checkOverlap ? '<p><strong>El pago llegó después de que la hora se liberara. Comprueba que nadie más la haya reservado.</strong></p>' : ''}<p>Nueva reserva pagada (copia de la factura adjunta).</p>
       <p>Cliente: ${name} &lt;${escapeHtml(b.email)}&gt;${b.phone ? `, tel. ${escapeHtml(b.phone)}` : ''}<br>
       Servicio: ${serviceName} × ${b.quantity}<br>Primera sesión: ${escapeHtml(when)}<br>
       Total: ${formatEuros(b.amountCents)}<br>Zoom: ${b.zoomJoinUrl ? escapeHtml(b.zoomJoinUrl) : 'sin crear'}</p>
