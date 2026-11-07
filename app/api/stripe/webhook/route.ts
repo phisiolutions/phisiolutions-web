@@ -19,7 +19,9 @@ export async function POST(req: Request) {
     await handleStripeEvent(event);
   } catch (e) {
     console.error('Error procesando el evento de Stripe', event.type, e);
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    // En modo pruebas mostramos el motivo para poder verlo en el panel de Stripe.
+    const detail = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test') ? (e as Error).message : undefined;
+    return NextResponse.json({ error: 'Error interno', detail }, { status: 500 });
   }
   return NextResponse.json({ received: true });
 }
