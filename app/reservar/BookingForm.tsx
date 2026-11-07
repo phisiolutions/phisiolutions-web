@@ -70,7 +70,12 @@ export default function BookingForm() {
     };
   }, [day, serviceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canPay = Boolean(slot && name.trim().length >= 2 && /\S+@\S+\.\S+/.test(email) && consent && !sending);
+  const missing: string[] = [];
+  if (!slot) missing.push('elige día y hora (paso 2)');
+  if (name.trim().length < 2) missing.push('escribe tu nombre (paso 3)');
+  if (!/\S+@\S+\.\S+/.test(email)) missing.push('escribe un email válido (paso 3)');
+  if (!consent) missing.push('marca la casilla de privacidad (paso 3)');
+  const canPay = missing.length === 0 && !sending;
 
   async function pay(e: React.FormEvent) {
     e.preventDefault();
@@ -248,6 +253,9 @@ export default function BookingForm() {
           <p className="error" role="alert">
             {error}
           </p>
+        )}
+        {missing.length > 0 && (
+          <p className="muted">Para continuar: {missing.join(', ')}.</p>
         )}
         <button type="submit" className="btn btn-accent" disabled={!canPay}>
           {sending ? 'Abriendo el pago…' : 'Ir al pago'}
