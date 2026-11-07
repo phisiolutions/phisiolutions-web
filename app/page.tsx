@@ -127,9 +127,13 @@ export default function Home() {
           <div>
             <h2 style={{ marginBottom: 16 }}>Sobre nosotros</h2>
             <p className="lead">
-              [NOMBRE], fisioterapeuta colegiado/a nº [Nº COLEGIADO], con [AÑOS] años de experiencia en
-              [ESPECIALIDAD]. Phisiolutions nace para acercar la fisioterapia y la gestión sanitaria a quien la
-              necesita, sin desplazamientos.
+              Phisiolutions es una empresa de fisioterapia y consultoría sanitaria online. Nacimos para acercar la
+              fisioterapia y la gestión sanitaria a quien la necesita, sin desplazamientos.
+            </p>
+            <p>
+              A los pacientes les ofrecemos valoración, seguimiento y planes de recuperación por videollamada,
+              siempre a cargo de fisioterapeutas colegiados. A los profesionales de la salud les acompañamos en la
+              apertura de su consulta: plan de negocio, requisitos legales, viabilidad y normativa.
             </p>
           </div>
           <div>
