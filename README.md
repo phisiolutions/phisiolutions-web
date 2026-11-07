@@ -54,4 +54,6 @@ Para recibir webhooks en local: `stripe listen --forward-to localhost:3000/api/s
 
 ## Nota sobre Netlify (plan gratuito)
 
+El repositorio es público para que Netlify publique cada cambio.
+
 En un repositorio privado, el plan gratuito de Netlify solo publica commits cuyo autor sea la cuenta de GitHub enlazada (phisiolutions). Los commits deben ir firmados con `352809278+phisiolutions@users.noreply.github.com`; si no, el deploy sale como "Unrecognized Git contributor". Si aun así se bloquea, la alternativa es hacer el repositorio público (no contiene contraseñas: están en Netlify).
