@@ -260,8 +260,14 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
 
   const fresh = (await getBooking(bookingId))!;
   if (fresh.confirmationSent) return;
-  await sendConfirmationEmails(fresh, lateAfterCancel);
-  await updateBooking(bookingId, { confirmationSent: 1 });
+  try {
+    await sendConfirmationEmails(fresh, lateAfterCancel);
+    await updateBooking(bookingId, { confirmationSent: 1 });
+  } catch (e) {
+    // La reserva sigue confirmada; el email se reintentará cuando Stripe reenvíe el evento.
+    console.error('No se pudieron enviar los emails de confirmación', e);
+    throw e;
+  }
 }
 
 async function invoiceAttachment(pdfUrl: string | null) {

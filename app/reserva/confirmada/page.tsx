@@ -21,7 +21,8 @@ export default async function Confirmada({ searchParams }: { searchParams: Promi
         booking = await getBookingBySession(session_id);
       }
     } catch (e) {
-      console.error('No se pudo comprobar el pago', e);
+      console.error('No se pudo completar la confirmación', e);
+      booking = await getBookingBySession(session_id);
     }
   }
 

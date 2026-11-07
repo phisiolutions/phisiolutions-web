@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db, dbConfigured, ensureSchema } from '@/lib/db';
+import { verifyMail } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,5 +33,6 @@ export async function GET() {
     : process.env.STRIPE_SECRET_KEY?.startsWith('sk_test')
       ? 'pruebas'
       : 'sin configurar';
-  return NextResponse.json({ baseDeDatos, stripeModo, configuradas });
+  const correo = process.env.SMTP_USER && process.env.SMTP_PASS ? await verifyMail() : 'sin configurar';
+  return NextResponse.json({ baseDeDatos, correo, stripeModo, configuradas });
 }
