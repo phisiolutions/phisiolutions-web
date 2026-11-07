@@ -51,3 +51,7 @@ Para recibir webhooks en local: `stripe listen --forward-to localhost:3000/api/s
 - IVA y forma de facturar de la LLC a clientes en España: confirmar con el gestor.
 - Textos legales revisados por un profesional y política de cancelación. La política de privacidad debe indicar que los datos se guardan en EE. UU. (Turso, Netlify, Stripe) y con qué garantías.
 - Las sesiones extra de un paquete se agendan por email; se puede añadir autoagenda más adelante.
+
+## Nota sobre Netlify (plan gratuito)
+
+En un repositorio privado, el plan gratuito de Netlify solo publica commits cuyo autor sea la cuenta de GitHub enlazada (phisiolutions). Los commits deben ir firmados con `352809278+phisiolutions@users.noreply.github.com`; si no, el deploy sale como "Unrecognized Git contributor".
