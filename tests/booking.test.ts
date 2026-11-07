@@ -129,3 +129,28 @@ describe('reserva y pago', () => {
     await expect(startCheckout({ ...input, email: 'no-es-email' }, now)).rejects.toBeInstanceOf(BookingError);
   });
 });
+
+describe('errores de Stripe', () => {
+  it('si Stripe falla, la hora queda libre', async () => {
+    const s = fakeStripe();
+    (s.checkout.sessions.create as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('boom'));
+    setStripeForTests(s);
+    await expect(startCheckout(input, now)).rejects.toThrow('boom');
+    setStripeForTests(fakeStripe());
+    await expect(startCheckout(input, now)).resolves.toBeTruthy();
+  });
+
+  it('si la transferencia no está disponible, reintenta solo con tarjeta', async () => {
+    const s = fakeStripe();
+    const create = s.checkout.sessions.create as unknown as ReturnType<typeof vi.fn>;
+    const ok = create.getMockImplementation()!;
+    create.mockImplementationOnce(async () => {
+      throw new Error('customer_balance not available');
+    });
+    create.mockImplementation(ok);
+    setStripeForTests(s);
+    const { url } = await startCheckout(input, now);
+    expect(url).toContain('checkout.stripe.test');
+    expect(createdSessions.at(-1)?.payment_method_types).toEqual(['card']);
+  });
+});

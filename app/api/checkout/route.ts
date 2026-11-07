@@ -11,6 +11,11 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof BookingError) return NextResponse.json({ error: e.message }, { status: e.status });
     console.error(e);
-    return NextResponse.json({ error: 'No hemos podido iniciar el pago. Inténtalo de nuevo.' }, { status: 500 });
+    // En modo de pruebas mostramos el motivo para poder corregirlo.
+    const detalle = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test') ? ` (${(e as Error).message})` : '';
+    return NextResponse.json(
+      { error: `No hemos podido iniciar el pago. Inténtalo de nuevo.${detalle}` },
+      { status: 500 },
+    );
   }
 }

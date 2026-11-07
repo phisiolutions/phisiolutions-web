@@ -85,6 +85,22 @@ export async function startCheckout(raw: unknown, now = DateTime.utc()): Promise
   );
   if (!booking) throw new BookingError('Esa hora ya no está disponible. Elige otra, por favor.', 409);
 
+  try {
+    return await createStripeSession(booking, input, service, startUtc, now);
+  } catch (e) {
+    // Si Stripe falla, liberamos la hora para que no quede bloqueada.
+    await transitionStatus(booking.id, ['pending'], 'cancelled');
+    throw e;
+  }
+}
+
+async function createStripeSession(
+  booking: Booking,
+  input: BookingInput,
+  service: NonNullable<ReturnType<typeof getService>>,
+  startUtc: string,
+  now: DateTime,
+): Promise<{ url: string; bookingId: string }> {
   const stripe = getStripe();
   const customer = await stripe.customers.create({
     name: input.name,
@@ -142,7 +158,19 @@ export async function startCheckout(raw: unknown, now = DateTime.utc()): Promise
     cancel_url: `${siteUrl()}/reservar?cancelada=1`,
   };
 
-  const session = await stripe.checkout.sessions.create(params);
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(params);
+  } catch (e) {
+    if (!transfer) throw e;
+    // Si la transferencia no está disponible en la cuenta, seguimos solo con tarjeta.
+    console.error('Stripe rechazó la transferencia; reintento solo con tarjeta:', (e as Error).message);
+    session = await stripe.checkout.sessions.create({
+      ...params,
+      payment_method_types: ['card'],
+      payment_method_options: undefined,
+    });
+  }
   await updateBooking(booking.id, { stripeSessionId: session.id });
   return { url: session.url!, bookingId: booking.id };
 }
