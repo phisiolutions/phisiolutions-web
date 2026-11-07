@@ -44,7 +44,6 @@ export default function BookingForm() {
     if (!day) return;
     let cancelled = false;
     setSlots(null);
-    setSlot(null);
     fetch(`/api/slots?service=${serviceId}&date=${day}`)
       .then(async (r) => {
         if (!r.ok) throw new Error('slots');
@@ -59,6 +58,8 @@ export default function BookingForm() {
           return;
         }
         setSlots(found);
+        // Mantiene la hora elegida si sigue libre (p. ej. al cambiar de servicio).
+        setSlot((current) => (current && found.includes(current) ? current : null));
       })
       .catch(() => {
         if (cancelled) return;
