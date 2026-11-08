@@ -19,7 +19,7 @@ export interface Service {
   gift?: boolean;
 }
 
-export const SERVICES: Service[] = [
+const CATALOG: Service[] = [
   {
     id: 'pac-informativa',
     audience: 'pacientes',
@@ -60,6 +60,14 @@ export const SERVICES: Service[] = [
     description: 'Sesión guiada por videollamada para tu tratamiento y ejercicios.',
     priceCents: 5000,
     durationMinutes: 60,
+  },
+  {
+    id: 'pro-express',
+    audience: 'profesionales',
+    name: 'Consulta exprés',
+    description: 'Breve estudio de tu caso para valorar si podemos ayudarte con nuestros servicios.',
+    priceCents: 3000,
+    durationMinutes: 30,
   },
   {
     id: 'pro-informativa',
@@ -124,6 +132,11 @@ export const SERVICES: Service[] = [
   },
 ];
 
+/** Catálogo ordenado de menor a mayor precio; los servicios sin precio fijo (como la tarjeta regalo) van al final. */
+export const SERVICES: Service[] = [...CATALOG].sort(
+  (a, b) => (a.priceCents ?? Number.MAX_SAFE_INTEGER) - (b.priceCents ?? Number.MAX_SAFE_INTEGER),
+);
+
 export const MAX_QUANTITY = 10;
 
 /** Servicios con precio publicado que se reservan directamente (no las tarjetas regalo). */
@@ -137,7 +150,7 @@ export function isBookable(s: Service): s is Service & { priceCents: number } {
 
 export const GIFT_VALID_MONTHS = 12;
 /** Importe de la tarjeta regalo: lo elige quien la compra (sumando servicios o escribiendo la cantidad). */
-export const GIFT_MIN_CENTS = 4000;
+export const GIFT_MIN_CENTS = 3000;
 export const GIFT_MAX_CENTS = 1_000_000;
 
 export function getService(id: string): Service | undefined {
