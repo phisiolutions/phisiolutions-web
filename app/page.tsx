@@ -146,7 +146,10 @@ export default function Home() {
             </details>
             <details>
               <summary>¿Puedo cambiar o cancelar mi cita?</summary>
-              <p>[POLÍTICA DE CANCELACIÓN Y REEMBOLSO]</p>
+              <p>
+                Sí, sin coste hasta 24 horas antes de la sesión. Escríbenos y te damos otra fecha o te devolvemos el
+                importe. Más detalles en las <Link href="/condiciones">condiciones de contratación</Link>.
+              </p>
             </details>
             <details>
               <summary>¿Tengo que estar colegiado para abrir mi consulta?</summary>

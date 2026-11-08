@@ -101,3 +101,6 @@ label.field { display: flex; flex-direction: column; gap: 6px; font-size: 15px; 
 .muted { color: var(--muted); margin: 0; font-size: 15px; }
 .prose { max-width: 760px; padding: 64px 24px 88px; margin: 0 auto; }
 .prose h1 { font-size: 40px; margin-bottom: 20px; }
+.prose h2 { font-size: 22px; margin: 32px 0 8px; }
+.prose ul { padding-left: 22px; }
+.prose li { margin: 4px 0; }
