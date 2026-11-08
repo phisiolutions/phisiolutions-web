@@ -10,6 +10,8 @@ export default function Page() {
       <p>
         {COMPANY.name}, {COMPANY.type}.
         <br />
+        Número fiscal (EIN): {COMPANY.ein}.
+        <br />
         Domicilio: {COMPANY.address.join(', ')}.
         <br />
         Teléfono: {COMPANY.phone} · Email: <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>

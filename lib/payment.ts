@@ -8,6 +8,8 @@ import {
   createCheckoutSession,
   invoiceAttachment,
   layout,
+  invoiceDataParams,
+  invoiceFields,
   paymentMethodParams,
   sessionInvoice,
   siteUrl,
@@ -77,7 +79,10 @@ export const PaymentInput = z.object({
   consent: z.literal(true),
 });
 
-export async function startPaymentCheckout(raw: unknown, now = DateTime.utc()): Promise<{ url: string; paymentId: string }> {
+export async function startPaymentCheckout(
+  raw: unknown,
+  now = DateTime.utc(),
+): Promise<{ url: string; paymentId: string }> {
   const parsed = PaymentInput.safeParse(raw);
   if (!parsed.success) {
     const amount = (raw as { amountCents?: unknown })?.amountCents;
@@ -103,6 +108,7 @@ export async function startPaymentCheckout(raw: unknown, now = DateTime.utc()): 
     });
     const session = await createCheckoutSession({
       ...paymentMethodParams(),
+      ...invoiceDataParams(),
       mode: 'payment',
       customer: customer.id,
       locale: 'es',
@@ -118,7 +124,7 @@ export async function startPaymentCheckout(raw: unknown, now = DateTime.utc()): 
         enabled: true,
         invoice_data: {
           description: input.concept,
-          footer: process.env.INVOICE_FOOTER ?? 'Phisiolutions LLC',
+          ...invoiceFields(),
           metadata: { payment_id: id },
         },
       },
@@ -141,7 +147,10 @@ export async function handlePaymentEvent(type: string, session: Stripe.Checkout.
   switch (type) {
     case 'checkout.session.completed':
       if (session.payment_status === 'paid') return confirmPayment(id, session.id);
-      if ((await exec(`UPDATE payments SET status = 'awaiting_transfer' WHERE id = ? AND status = 'pending'`, [id])).rowsAffected) {
+      if (
+        (await exec(`UPDATE payments SET status = 'awaiting_transfer' WHERE id = ? AND status = 'pending'`, [id]))
+          .rowsAffected
+      ) {
         await sendTransferEmail(id, session);
       }
       return;
@@ -149,14 +158,20 @@ export async function handlePaymentEvent(type: string, session: Stripe.Checkout.
       return confirmPayment(id, session.id);
     case 'checkout.session.async_payment_failed':
     case 'checkout.session.expired':
-      await exec(`UPDATE payments SET status = 'cancelled' WHERE id = ? AND status IN ('pending','awaiting_transfer')`, [id]);
+      await exec(
+        `UPDATE payments SET status = 'cancelled' WHERE id = ? AND status IN ('pending','awaiting_transfer')`,
+        [id],
+      );
       return;
   }
 }
 
 /** Marca el pago como cobrado y envía la factura al cliente y a Phisiolutions. Idempotente. */
 export async function confirmPayment(id: string, sessionId: string): Promise<void> {
-  await exec(`UPDATE payments SET status = 'paid' WHERE id = ? AND status IN ('pending','awaiting_transfer','cancelled')`, [id]);
+  await exec(
+    `UPDATE payments SET status = 'paid' WHERE id = ? AND status IN ('pending','awaiting_transfer','cancelled')`,
+    [id],
+  );
   let p = await getPayment(id);
   if (!p || p.emailSent) return;
   if (!p.invoiceUrl) {

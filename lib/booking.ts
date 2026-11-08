@@ -15,6 +15,7 @@ import { adminEmail, escapeHtml, sendMail } from './mail';
 import { formatEuros, getService, isBookable, MAX_QUANTITY, type Service } from './services';
 import { bankTransferEnabled, getStripe } from './stripe';
 import { createZoomMeeting, jitsiMeetingUrl, zoomConfigured } from './zoom';
+import { COMPANY } from './company';
 import { handleGiftEvent } from './gift';
 import { handlePaymentEvent } from './payment';
 
@@ -60,11 +61,7 @@ export async function startCheckout(raw: unknown, now = DateTime.utc()): Promise
   const endUtc = start.plus({ minutes: service.durationMinutes }).toISO({ suppressMilliseconds: true })!;
   const nowIso = now.toISO()!;
 
-  const busy = await busyBetween(
-    start.minus({ days: 1 }).toISO()!,
-    start.plus({ days: 1 }).toISO()!,
-    nowIso,
-  );
+  const busy = await busyBetween(start.minus({ days: 1 }).toISO()!, start.plus({ days: 1 }).toISO()!, nowIso);
   if (!isSlotAvailable(startUtc, service.durationMinutes, busy, now)) {
     throw new BookingError('Esa hora ya no está disponible. Elige otra, por favor.', 409);
   }
@@ -115,6 +112,7 @@ async function createStripeSession(
   const when = formatLocal(startUtc);
   const params: Stripe.Checkout.SessionCreateParams = {
     ...paymentMethodParams(),
+    ...invoiceDataParams(),
     mode: 'payment',
     customer: customer.id,
     locale: 'es',
@@ -137,7 +135,7 @@ async function createStripeSession(
       enabled: true,
       invoice_data: {
         description: `${service.name} × ${input.quantity}. Primera sesión: ${when}.`,
-        footer: process.env.INVOICE_FOOTER ?? 'Phisiolutions LLC',
+        ...invoiceFields(),
         metadata: { booking_id: booking.id },
       },
     },
@@ -151,6 +149,25 @@ async function createStripeSession(
   const session = await createCheckoutSession(params);
   await updateBooking(booking.id, { stripeSessionId: session.id });
   return { url: session.url!, bookingId: booking.id };
+}
+
+/**
+ * Datos fiscales en la factura: el EIN de la LLC y, del cliente, dirección de facturación y (si compra como
+ * empresa o profesional) su NIF/CIF y razón social, que Stripe pide en la página de pago.
+ */
+export function invoiceDataParams() {
+  return {
+    billing_address_collection: 'required' as const,
+    tax_id_collection: { enabled: true },
+    customer_update: { name: 'auto' as const, address: 'auto' as const },
+  };
+}
+
+export function invoiceFields() {
+  return {
+    footer: process.env.INVOICE_FOOTER ?? `${COMPANY.name} · EIN ${COMPANY.ein}`,
+    custom_fields: [{ name: 'EIN', value: COMPANY.ein }],
+  };
 }
 
 /** Tarjeta y, si está activada, transferencia bancaria en EUR. */
@@ -183,7 +200,11 @@ export async function createCheckoutSession(params: Stripe.Checkout.SessionCreat
   } catch (e) {
     if (!params.payment_method_types?.includes('customer_balance')) throw e;
     console.error('Stripe rechazó la transferencia; reintento solo con tarjeta:', (e as Error).message);
-    return stripe.checkout.sessions.create({ ...params, payment_method_types: ['card'], payment_method_options: undefined });
+    return stripe.checkout.sessions.create({
+      ...params,
+      payment_method_types: ['card'],
+      payment_method_options: undefined,
+    });
   }
 }
 

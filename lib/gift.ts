@@ -10,6 +10,8 @@ import {
   finalizeBooking,
   invoiceAttachment,
   layout,
+  invoiceDataParams,
+  invoiceFields,
   paymentMethodParams,
   sessionInvoice,
   siteUrl,
@@ -117,7 +119,17 @@ export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Pro
   await exec(
     `INSERT INTO gifts (id, code, service_id, buyer_name, buyer_email, recipient_name, message, amount_cents, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-    [id, code, service.id, input.buyerName, input.buyerEmail, input.recipientName, input.message || null, service.priceCents, now.toISO()!],
+    [
+      id,
+      code,
+      service.id,
+      input.buyerName,
+      input.buyerEmail,
+      input.recipientName,
+      input.message || null,
+      service.priceCents,
+      now.toISO()!,
+    ],
   );
 
   try {
@@ -129,6 +141,7 @@ export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Pro
     });
     const session = await createCheckoutSession({
       ...paymentMethodParams(),
+      ...invoiceDataParams(),
       mode: 'payment',
       customer: customer.id,
       locale: 'es',
@@ -151,7 +164,7 @@ export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Pro
         enabled: true,
         invoice_data: {
           description: `Tarjeta regalo: ${service.name} (para ${input.recipientName}).`,
-          footer: process.env.INVOICE_FOOTER ?? 'Phisiolutions LLC',
+          ...invoiceFields(),
           metadata: { gift_id: id },
         },
       },
@@ -182,7 +195,9 @@ export async function handleGiftEvent(type: string, session: Stripe.Checkout.Ses
       return confirmGift(id, session.id);
     case 'checkout.session.async_payment_failed':
     case 'checkout.session.expired':
-      await exec(`UPDATE gifts SET status = 'cancelled' WHERE id = ? AND status IN ('pending','awaiting_transfer')`, [id]);
+      await exec(`UPDATE gifts SET status = 'cancelled' WHERE id = ? AND status IN ('pending','awaiting_transfer')`, [
+        id,
+      ]);
       return;
   }
 }
@@ -342,4 +357,3 @@ export async function redeemGift(raw: unknown, now = DateTime.utc()): Promise<{ 
   }
   return { bookingId: booking.id };
 }
-

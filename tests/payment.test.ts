@@ -60,6 +60,9 @@ describe('pago libre', () => {
     const { paymentId } = await startPaymentCheckout(input);
     expect(created[0].line_items![0].price_data!.unit_amount).toBe(25050);
     expect(created[0].invoice_creation?.enabled).toBe(true);
+    expect(created[0].invoice_creation?.invoice_data?.custom_fields).toEqual([{ name: 'EIN', value: '38-4417056' }]);
+    expect(created[0].tax_id_collection).toEqual({ enabled: true });
+    expect(created[0].billing_address_collection).toBe('required');
     const ev = () =>
       ({ type: 'checkout.session.completed', data: { object: { ...sessions.cs_1, payment_status: 'paid' } } }) as unknown as Stripe.Event;
     await handleStripeEvent(ev());
