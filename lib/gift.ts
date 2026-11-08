@@ -19,7 +19,17 @@ import {
 } from './booking';
 import { busyBetween, createPendingBooking, db, ensureSchema, transitionStatus } from './db';
 import { adminEmail, escapeHtml, sendMail } from './mail';
-import { formatEuros, getService, GIFT_VALID_MONTHS, SERVICES, type Service } from './services';
+import {
+  formatEuros,
+  getService,
+  GIFT_MAX_CENTS,
+  GIFT_MIN_CENTS,
+  GIFT_VALID_MONTHS,
+  isBookable,
+  isListed,
+  SERVICES,
+  type Service,
+} from './services';
 import { getStripe } from './stripe';
 
 export type GiftStatus = 'pending' | 'awaiting_transfer' | 'paid' | 'redeemed' | 'cancelled';
@@ -32,6 +42,8 @@ export interface Gift {
   buyerEmail: string;
   recipientName: string;
   message: string | null;
+  /** Servicios que quien regala ha sumado para fijar el importe (texto informativo). */
+  items: string | null;
   amountCents: number;
   status: GiftStatus;
   stripeSessionId: string | null;
@@ -45,9 +57,8 @@ export interface Gift {
 }
 
 /** El servicio que se vende como regalo (si tiene precio publicado). */
-export function giftService(): (Service & { priceCents: number }) | null {
-  const s = SERVICES.find((x) => x.gift && x.priceCents !== null);
-  return (s as Service & { priceCents: number }) ?? null;
+export function giftService(): Service | null {
+  return SERVICES.find((x) => x.gift && isListed(x)) ?? null;
 }
 
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I/L para que no haya confusiones
@@ -70,6 +81,7 @@ function rowToGift(r: Record<string, unknown>): Gift {
     buyerEmail: String(r.buyer_email),
     recipientName: String(r.recipient_name),
     message: str(r.message),
+    items: str(r.items),
     amountCents: Number(r.amount_cents),
     status: r.status as GiftStatus,
     stripeSessionId: str(r.stripe_session_id),
@@ -103,22 +115,38 @@ export const GiftInput = z.object({
   buyerEmail: z.string().trim().email().max(200),
   recipientName: z.string().trim().min(2).max(120),
   message: z.string().trim().max(500).optional(),
+  amountCents: z.number().int().min(GIFT_MIN_CENTS).max(GIFT_MAX_CENTS),
+  serviceIds: z.array(z.string()).max(20).optional(),
   consent: z.literal(true),
 });
 
 /** Crea la tarjeta regalo (pendiente de pago) y la sesión de pago de Stripe. */
 export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Promise<{ url: string; giftId: string }> {
   const parsed = GiftInput.safeParse(raw);
-  if (!parsed.success) throw new BookingError('Revisa los datos del formulario.');
+  if (!parsed.success) {
+    const amount = (raw as { amountCents?: unknown })?.amountCents;
+    if (typeof amount === 'number' && (amount < GIFT_MIN_CENTS || amount > GIFT_MAX_CENTS)) {
+      throw new BookingError(
+        `El importe debe estar entre ${formatEuros(GIFT_MIN_CENTS)} y ${formatEuros(GIFT_MAX_CENTS)}.`,
+      );
+    }
+    throw new BookingError('Revisa los datos del formulario.');
+  }
   const input = parsed.data;
+  const items =
+    (input.serviceIds ?? [])
+      .map((sid) => getService(sid))
+      .filter((s): s is Service => Boolean(s && isBookable(s)))
+      .map((s) => s.name)
+      .join(' + ') || null;
   const service = giftService();
   if (!service) throw new BookingError('La tarjeta regalo todavía no está disponible.');
 
   const id = randomUUID();
   const code = newCode();
   await exec(
-    `INSERT INTO gifts (id, code, service_id, buyer_name, buyer_email, recipient_name, message, amount_cents, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+    `INSERT INTO gifts (id, code, service_id, buyer_name, buyer_email, recipient_name, message, items, amount_cents, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
     [
       id,
       code,
@@ -127,7 +155,8 @@ export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Pro
       input.buyerEmail,
       input.recipientName,
       input.message || null,
-      service.priceCents,
+      items,
+      input.amountCents,
       now.toISO()!,
     ],
   );
@@ -152,10 +181,10 @@ export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Pro
           quantity: 1,
           price_data: {
             currency: 'eur',
-            unit_amount: service.priceCents,
+            unit_amount: input.amountCents,
             product_data: {
               name: `Tarjeta regalo: ${service.name}`,
-              description: `Para ${input.recipientName}. Válida ${GIFT_VALID_MONTHS} meses desde el pago.`,
+              description: `Para ${input.recipientName}.${items ? ` Incluye: ${items}.` : ''} Válida ${GIFT_VALID_MONTHS} meses desde el pago.`,
             },
           },
         },
@@ -163,7 +192,7 @@ export async function startGiftCheckout(raw: unknown, now = DateTime.utc()): Pro
       invoice_creation: {
         enabled: true,
         invoice_data: {
-          description: `Tarjeta regalo: ${service.name} (para ${input.recipientName}).`,
+          description: `Tarjeta regalo: ${service.name} (para ${input.recipientName})${items ? `. Incluye: ${items}` : ''}.`,
           ...invoiceFields(),
           metadata: { gift_id: id },
         },
@@ -237,6 +266,7 @@ function giftCardHtml(g: Gift): string {
     <p style="margin:0;font-size:13px;letter-spacing:1px;color:#0B6E8A;font-weight:bold">TARJETA REGALO</p>
     <p style="margin:8px 0;font-size:20px;font-weight:bold">${escapeHtml(service?.name ?? 'Estudio de negocio')}</p>
     <p style="margin:0">Para: <strong>${escapeHtml(g.recipientName)}</strong><br>De: ${escapeHtml(g.buyerName)}</p>
+    <p style="margin:8px 0 0">Valor: <strong>${formatEuros(g.amountCents)}</strong>${g.items ? `<br>Incluye: ${escapeHtml(g.items)}` : ''}</p>
     ${g.message ? `<p style="font-style:italic">“${escapeHtml(g.message)}”</p>` : ''}
     <p style="margin:16px 0 4px">Código:</p>
     <p style="margin:0;font-size:26px;font-weight:bold;letter-spacing:2px">${escapeHtml(g.code)}</p>
@@ -263,7 +293,7 @@ async function sendGiftEmails(g: Gift) {
     subject: `Tarjeta regalo vendida: ${service?.name ?? g.serviceId} (${g.buyerName} → ${g.recipientName})`,
     html: layout(`<p>Se ha vendido una tarjeta regalo (copia de la factura adjunta).</p>
       <p>Comprador: ${escapeHtml(g.buyerName)} &lt;${escapeHtml(g.buyerEmail)}&gt;<br>
-      Para: ${escapeHtml(g.recipientName)}<br>Código: ${escapeHtml(g.code)}<br>Importe: ${formatEuros(g.amountCents)}</p>`),
+      Para: ${escapeHtml(g.recipientName)}<br>Código: ${escapeHtml(g.code)}<br>Importe: ${formatEuros(g.amountCents)}${g.items ? `<br>Incluye: ${escapeHtml(g.items)}` : ''}</p>`),
     attachments,
   });
 }
@@ -330,7 +360,12 @@ export async function redeemGift(raw: unknown, now = DateTime.utc()): Promise<{ 
       name: input.name,
       email: input.email,
       phone: input.phone || null,
-      notes: [`Tarjeta regalo ${gift.code} (de ${gift.buyerName})`, input.notes].filter(Boolean).join('. '),
+      notes: [
+        `Tarjeta regalo ${gift.code} de ${gift.buyerName}, valor ${formatEuros(gift.amountCents)}${gift.items ? ` (${gift.items})` : ''}`,
+        input.notes,
+      ]
+        .filter(Boolean)
+        .join('. '),
       amountCents: 0,
       holdExpiresUtc: now.plus({ minutes: 5 }).toISO()!,
     },

@@ -54,10 +54,10 @@ export default function Home() {
                 {s.highlight && <span className="tag">{s.highlight}</span>}
                 <h3>{s.name}</h3>
                 <p className="grow">{s.description}</p>
-                <span className="price">{formatEuros(s.priceCents)}</span>
+                <span className="price">{s.gift ? 'Tú eliges' : formatEuros(s.priceCents)}</span>
                 {s.gift ? (
                   <Link href="/regalo" className="btn btn-accent">
-                    {s.priceCents !== null ? 'Regalar' : 'Canjear un código'}
+                    Regalar
                   </Link>
                 ) : s.priceCents !== null ? (
                   <Link

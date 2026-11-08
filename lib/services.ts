@@ -93,7 +93,7 @@ export const SERVICES: Service[] = [
     name: 'Mejora tus resultados',
     description:
       'Si ya eres profesional y quieres mejorar en resultados, te asesoramos sobre las principales demandas o carencias del mercado y cómo formarte en ellas.',
-    priceCents: null,
+    priceCents: 8000,
     durationMinutes: 60,
   },
   {
@@ -101,7 +101,7 @@ export const SERVICES: Service[] = [
     audience: 'profesionales',
     name: 'Date a conocer',
     description: 'Estudio de marketing y de posicionamiento en la web y en redes sociales para darte a conocer.',
-    priceCents: null,
+    priceCents: 5000,
     durationMinutes: 60,
   },
   {
@@ -109,7 +109,7 @@ export const SERVICES: Service[] = [
     audience: 'profesionales',
     name: 'Haz crecer tu negocio',
     description: 'Cuéntanos tu caso y buscaremos las mejores opciones para incrementar tu volumen de negocio.',
-    priceCents: null,
+    priceCents: 4000,
     durationMinutes: 60,
   },
   {
@@ -136,6 +136,9 @@ export function isBookable(s: Service): s is Service & { priceCents: number } {
 }
 
 export const GIFT_VALID_MONTHS = 12;
+/** Importe de la tarjeta regalo: lo elige quien la compra (sumando servicios o escribiendo la cantidad). */
+export const GIFT_MIN_CENTS = 4000;
+export const GIFT_MAX_CENTS = 1_000_000;
 
 export function getService(id: string): Service | undefined {
   return SERVICES.find((s) => s.id === id);

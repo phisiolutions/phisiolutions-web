@@ -26,7 +26,9 @@ export default async function RegaloConfirmado({ searchParams }: { searchParams:
       <main className="prose">
         <h1>No encontramos tu pedido</h1>
         <p>Si has pagado, revisa tu email: allí tienes la tarjeta regalo.</p>
-        <Link href="/regalo" className="btn btn-accent">Volver</Link>
+        <Link href="/regalo" className="btn btn-accent">
+          Volver
+        </Link>
       </main>
     );
   }
@@ -34,14 +36,17 @@ export default async function RegaloConfirmado({ searchParams }: { searchParams:
   const paid = gift.status === 'paid' || gift.status === 'redeemed';
   return (
     <main className="prose">
-      <h1>{paid ? '¡Tarjeta regalo lista!' : gift.status === 'cancelled' ? 'Pago no completado' : 'Pedido recibido'}</h1>
+      <h1>
+        {paid ? '¡Tarjeta regalo lista!' : gift.status === 'cancelled' ? 'Pago no completado' : 'Pedido recibido'}
+      </h1>
       <p className="lead">
         Para {gift.recipientName}. Importe: {formatEuros(gift.amountCents)}.
       </p>
       {paid && (
         <>
           <p>
-            Te hemos enviado por email la tarjeta regalo con el código y la factura. Código: <strong>{gift.code}</strong>
+            Te hemos enviado por email la tarjeta regalo con el código y la factura. Código:{' '}
+            <strong>{gift.code}</strong>
           </p>
           <div className="actions">
             {gift.invoicePdfUrl && (

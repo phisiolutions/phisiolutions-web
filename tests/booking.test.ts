@@ -128,8 +128,8 @@ describe('reserva y pago', () => {
     await expect(startCheckout({ ...input, email: 'otro@example.com' }, now)).resolves.toBeTruthy();
   });
 
-  it('no deja reservar servicios sin precio publicado ni de pacientes (ocultos)', async () => {
-    await expect(startCheckout({ ...input, serviceId: 'pro-marketing' }, now)).rejects.toBeInstanceOf(BookingError);
+  it('no deja reservar directamente la tarjeta regalo ni servicios de pacientes (ocultos)', async () => {
+    await expect(startCheckout({ ...input, serviceId: 'pro-regalo' }, now)).rejects.toBeInstanceOf(BookingError);
     await expect(startCheckout({ ...input, serviceId: 'pac-fisio-60' }, now)).rejects.toBeInstanceOf(BookingError);
   });
 

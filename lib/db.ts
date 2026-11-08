@@ -118,12 +118,20 @@ export async function ensureSchema() {
             email_sent INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             paid_at TEXT,
-            expires_at TEXT
+            expires_at TEXT,
+            items TEXT
           )`,
         ],
         'write',
       )
-      .then(() => undefined)
+      .then(async () => {
+        // Columnas añadidas después de crear las tablas: si ya existen, el error se ignora.
+        for (const sql of [`ALTER TABLE gifts ADD COLUMN items TEXT`]) {
+          await db()
+            .execute(sql)
+            .catch(() => {});
+        }
+      })
       .catch((e) => {
         ready = null; // reintenta en la siguiente petición
         throw e;

@@ -9,11 +9,9 @@ import { setStripeForTests } from '@/lib/stripe';
 import { setMailerForTests, type Mail } from '@/lib/mail';
 import { handleStripeEvent, BookingError } from '@/lib/booking';
 import { startGiftCheckout, redeemGift, getGift, checkCode } from '@/lib/gift';
-import { SERVICES } from '@/lib/services';
 
 const now = DateTime.fromISO('2026-11-09T06:00:00Z') as DateTime<true>;
 const slot = '2026-11-10T16:00:00Z';
-const giftSvc = SERVICES.find((s) => s.gift)!;
 
 let sent: Mail[];
 let sessions: Record<string, Partial<Stripe.Checkout.Session>>;
@@ -45,7 +43,14 @@ function event(type: string, id: string, extra: Partial<Stripe.Checkout.Session>
   return { type, data: { object: { ...sessions[id] } } } as unknown as Stripe.Event;
 }
 
-const buyer = { buyerName: 'Luis Pérez', buyerEmail: 'luis@example.com', recipientName: 'Marta Gil', consent: true as const };
+const buyer = {
+  buyerName: 'Luis Pérez',
+  buyerEmail: 'luis@example.com',
+  recipientName: 'Marta Gil',
+  amountCents: 13000,
+  serviceIds: ['pro-formacion', 'pro-marketing'],
+  consent: true as const,
+};
 const redeem = { startUtc: slot, name: 'Marta Gil', email: 'marta@example.com', consent: true as const };
 
 beforeEach(() => {
@@ -57,7 +62,6 @@ beforeEach(() => {
   setMailerForTests(async (m) => {
     sent.push(m);
   });
-  giftSvc.priceCents = 30000;
 });
 
 async function paidGift() {
@@ -67,9 +71,8 @@ async function paidGift() {
 }
 
 describe('tarjeta regalo', () => {
-  it('no se vende sin precio', async () => {
-    giftSvc.priceCents = null;
-    await expect(startGiftCheckout(buyer, now)).rejects.toBeInstanceOf(BookingError);
+  it('rechaza importes fuera de rango', async () => {
+    await expect(startGiftCheckout({ ...buyer, amountCents: 1000 }, now)).rejects.toBeInstanceOf(BookingError);
   });
 
   it('al pagar envía la tarjeta con el código al comprador y copia a Phisiolutions, una vez', async () => {
@@ -79,6 +82,9 @@ describe('tarjeta regalo', () => {
     await handleStripeEvent(event('checkout.session.completed', 'cs_1'));
     expect(sent.map((m) => m.to)).toEqual(['luis@example.com', 'phisiolutions@gmail.com']);
     expect(sent[0].html).toContain(gift.code);
+    expect(gift.amountCents).toBe(13000);
+    expect(gift.items).toBe('Mejora tus resultados + Date a conocer');
+    expect(sent[0].html).toContain('130 €');
   });
 
   it('un código sin pagar no se puede canjear', async () => {
