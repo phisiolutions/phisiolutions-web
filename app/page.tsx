@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { SERVICES, formatEuros } from '@/lib/services';
 
 export default function Home() {
-  const pacientes = SERVICES.filter((s) => s.audience === 'pacientes');
   const profesionales = SERVICES.filter((s) => s.audience === 'profesionales');
 
   return (
@@ -10,65 +9,38 @@ export default function Home() {
       <section className="section section-sky" id="inicio">
         <div className="container hero">
           <div className="hero-copy">
-            <p className="eyebrow">Fisioterapia y consultoría online</p>
-            <h1>Tu recuperación y tu proyecto, guiados por fisioterapeutas, estés donde estés.</h1>
+            <p className="eyebrow">Consultoría online para profesionales de la salud</p>
+            <h1>Tu consulta de fisioterapia, bien planificada y en crecimiento, estés donde estés.</h1>
             <p className="lead">
-              Sesiones por videollamada para pacientes y asesoría para profesionales que quieren abrir su propia
-              consulta. Reserva y paga en un minuto.
+              Asesoría por videollamada para abrir tu consulta o hacer crecer la que ya tienes. Reserva y paga en un
+              minuto.
             </p>
             <div className="actions">
-              <Link href="/#pacientes" className="btn btn-accent">
-                Soy paciente
+              <Link href="/reservar" className="btn btn-accent">
+                Reservar sesión
               </Link>
               <Link href="/#profesionales" className="btn btn-outline">
-                Soy profesional
+                Ver servicios
               </Link>
             </div>
           </div>
           <div className="hero-card" aria-label="Ejemplo de reserva">
             <span className="tag">Así queda tu reserva</span>
-            <h3 style={{ fontSize: 24 }}>Fisioterapia online · 60 min</h3>
+            <h3 style={{ fontSize: 24 }}>Primera sesión informativa</h3>
             <p className="muted">Día y hora que elijas en la agenda</p>
             <p className="muted">Enlace de Zoom y factura en tu email</p>
             <div className="total">
               <span>Por sesión</span>
-              <strong>50 €</strong>
+              <strong>100 €</strong>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="section" id="pacientes">
-        <div className="container">
-          <div className="section-head">
-            <p className="eyebrow">Para pacientes</p>
-            <h2>Asesoramiento de salud y recuperación funcional</h2>
-            <p className="lead">
-              Un fisioterapeuta colegiado valora tu caso, te guía en los ejercicios y te prepara un plan de recuperación
-              a tu medida, sin salir de casa.
-            </p>
-          </div>
-          <div className="grid">
-            {pacientes.map((s) => (
-              <div key={s.id} className={`card${s.highlight ? ' card-featured' : ''}`}>
-                {s.highlight && <span className="tag">{s.highlight}</span>}
-                <h3>{s.name}</h3>
-                <p className="grow">{s.description}</p>
-                <span className="price">{formatEuros(s.priceCents)}</span>
-                <Link href={`/reservar?servicio=${s.id}`} className="btn btn-outline">
-                  Reservar
-                </Link>
-              </div>
-            ))}
-          </div>
-          <p className="note">Precios por sesión. Puedes reservar varias sesiones en la misma compra.</p>
         </div>
       </section>
 
       <section className="section section-dark" id="profesionales">
         <div className="container">
           <div className="section-head">
-            <p className="eyebrow">Para profesionales de la salud</p>
+            <p className="eyebrow">Nuestros servicios</p>
             <h2>Monta tu consulta o haz crecer la que ya tienes</h2>
             <p className="lead">
               Plan de negocio, estudio de viabilidad, requisitos legales y normativa vigente para cada modalidad:
@@ -147,20 +119,19 @@ export default function Home() {
           <div>
             <h2 style={{ marginBottom: 16 }}>Sobre nosotros</h2>
             <p className="lead">
-              Phisiolutions es una empresa de fisioterapia y consultoría sanitaria online. Nacimos para acercar la
-              fisioterapia y la gestión sanitaria a quien la necesita, sin desplazamientos.
+              Phisiolutions es una empresa de consultoría online para fisioterapeutas y profesionales de la salud.
+              Nacimos para acercar la gestión sanitaria a quien la necesita, sin desplazamientos.
             </p>
             <p>
-              A los pacientes les ofrecemos valoración, seguimiento y planes de recuperación por videollamada, siempre a
-              cargo de fisioterapeutas colegiados. A los profesionales de la salud les acompañamos en la apertura de su
-              consulta: plan de negocio, requisitos legales, viabilidad y normativa.
+              Te acompañamos en la apertura de tu consulta (plan de negocio, requisitos legales, viabilidad y normativa)
+              y, si ya ejerces, en mejorar tus resultados, darte a conocer y aumentar tu volumen de negocio.
             </p>
           </div>
           <div>
             <h2 style={{ fontSize: 28, marginBottom: 8 }}>Preguntas frecuentes</h2>
             <details>
               <summary>¿Qué necesito para la sesión online?</summary>
-              <p>Un móvil u ordenador con cámara y un espacio donde moverte con comodidad.</p>
+              <p>Un móvil u ordenador con cámara y conexión a internet.</p>
             </details>
             <details>
               <summary>¿Cómo puedo pagar?</summary>

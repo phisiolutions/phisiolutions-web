@@ -5,7 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Phisiolutions: fisioterapia y consultoría online',
   description:
-    'Sesiones de fisioterapia y asesoramiento de salud por videollamada, y consultoría para fisioterapeutas que quieren abrir su consulta.',
+    'Consultoría online para fisioterapeutas y profesionales de la salud: plan de negocio, apertura de consulta, marketing y crecimiento.',
   icons: { icon: '/logo.png' },
 };
 
@@ -25,7 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <img src="/logo.png" alt="Phisiolutions" className="logo" />
             </Link>
             <nav aria-label="Principal" className="nav">
-              <Link href="/#pacientes">Pacientes</Link>
               <Link href="/#profesionales">Profesionales</Link>
               <Link href="/#como-funciona">Cómo funciona</Link>
               <Link href="/#sobre-nosotros">Sobre nosotros</Link>

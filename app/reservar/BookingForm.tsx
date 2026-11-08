@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { AGENDA } from '@/lib/availability';
-import { MAX_QUANTITY, SERVICES as ALL_SERVICES, formatEuros, isBookable, type Audience } from '@/lib/services';
+import {
+  MAX_QUANTITY,
+  SERVICES as ALL_SERVICES,
+  formatEuros,
+  isBookable,
+  AUDIENCES_ENABLED,
+  type Audience,
+} from '@/lib/services';
 
 // Solo los servicios con precio publicado se pueden reservar.
 const SERVICES = ALL_SERVICES.filter(isBookable);
@@ -33,8 +40,7 @@ export default function BookingForm() {
   const codigo = params.get('codigo');
   const [gift, setGift] = useState<GiftInfo | null>(null);
   const [giftError, setGiftError] = useState<string | null>(null);
-  const initial =
-    SERVICES.find((s) => s.id === params.get('servicio')) ?? SERVICES.find((s) => s.id === 'pac-fisio-60')!;
+  const initial = SERVICES.find((s) => s.id === params.get('servicio')) ?? SERVICES[0];
   const [audience, setAudience] = useState<Audience>(initial.audience);
   const [serviceId, setServiceId] = useState(initial.id);
   const [quantity, setQuantity] = useState(1);
@@ -192,27 +198,29 @@ export default function BookingForm() {
         {!giftMode && (
           <section className="panel" aria-labelledby="paso1">
             <h2 id="paso1">1. Elige el servicio</h2>
-            <div className="row" role="group" aria-label="Tipo de cliente">
-              {(
-                [
-                  ['pacientes', 'Soy paciente'],
-                  ['profesionales', 'Soy profesional'],
-                ] as [Audience, string][]
-              ).map(([a, label]) => (
-                <button
-                  key={a}
-                  type="button"
-                  className="pill"
-                  aria-pressed={audience === a}
-                  onClick={() => {
-                    setAudience(a);
-                    setServiceId(SERVICES.find((s) => s.audience === a)!.id);
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {AUDIENCES_ENABLED.length > 1 && (
+              <div className="row" role="group" aria-label="Tipo de cliente">
+                {(
+                  [
+                    ['pacientes', 'Soy paciente'],
+                    ['profesionales', 'Soy profesional'],
+                  ] as [Audience, string][]
+                ).map(([a, label]) => (
+                  <button
+                    key={a}
+                    type="button"
+                    className="pill"
+                    aria-pressed={audience === a}
+                    onClick={() => {
+                      setAudience(a);
+                      setServiceId(SERVICES.find((s) => s.audience === a)!.id);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {list.map((s) => (
                 <button
@@ -333,7 +341,7 @@ export default function BookingForm() {
                   <a href="/condiciones" target="_blank">
                     condiciones de contratación
                   </a>{' '}
-                  y el tratamiento de mis datos de salud para la prestación del servicio.
+                  y el tratamiento de mis datos para la prestación del servicio.
                 </span>
               </label>
             </section>

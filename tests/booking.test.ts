@@ -43,7 +43,7 @@ function fakeStripe() {
 }
 
 const input = {
-  serviceId: 'pac-fisio-60',
+  serviceId: 'pro-informativa',
   quantity: 2,
   startUtc: slot,
   name: 'Ana López',
@@ -77,10 +77,10 @@ describe('reserva y pago', () => {
     expect(p.currency).toBe('eur');
     expect(p.payment_method_types).toEqual(['card', 'customer_balance']);
     expect(p.invoice_creation?.enabled).toBe(true);
-    expect(p.line_items?.[0]).toMatchObject({ quantity: 2, price_data: { unit_amount: 5000 } });
+    expect(p.line_items?.[0]).toMatchObject({ quantity: 2, price_data: { unit_amount: 10000 } });
     const b = await getBooking(bookingId);
     expect(b?.status).toBe('pending');
-    expect(b?.amountCents).toBe(10000);
+    expect(b?.amountCents).toBe(20000);
   });
 
   it('impide reservar dos veces la misma hora', async () => {
@@ -124,8 +124,9 @@ describe('reserva y pago', () => {
     await expect(startCheckout({ ...input, email: 'otro@example.com' }, now)).resolves.toBeTruthy();
   });
 
-  it('no deja reservar servicios sin precio publicado', async () => {
+  it('no deja reservar servicios sin precio publicado ni de pacientes (ocultos)', async () => {
     await expect(startCheckout({ ...input, serviceId: 'pro-marketing' }, now)).rejects.toBeInstanceOf(BookingError);
+    await expect(startCheckout({ ...input, serviceId: 'pac-fisio-60' }, now)).rejects.toBeInstanceOf(BookingError);
   });
 
   it('rechaza datos incompletos o sin consentimiento', async () => {

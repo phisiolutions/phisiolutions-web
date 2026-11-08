@@ -3,6 +3,9 @@
 
 export type Audience = 'pacientes' | 'profesionales';
 
+/** Públicos que se muestran en la web. Para volver a mostrar pacientes, añade 'pacientes'. */
+export const AUDIENCES_ENABLED: Audience[] = ['profesionales'];
+
 export interface Service {
   id: string;
   audience: Audience;
@@ -124,8 +127,12 @@ export const SERVICES: Service[] = [
 export const MAX_QUANTITY = 10;
 
 /** Servicios con precio publicado que se reservan directamente (no las tarjetas regalo). */
+export function isListed(s: Service): boolean {
+  return AUDIENCES_ENABLED.includes(s.audience);
+}
+
 export function isBookable(s: Service): s is Service & { priceCents: number } {
-  return s.priceCents !== null && !s.gift;
+  return isListed(s) && s.priceCents !== null && !s.gift;
 }
 
 export const GIFT_VALID_MONTHS = 12;
