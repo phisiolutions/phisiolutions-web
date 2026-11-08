@@ -152,12 +152,12 @@ async function createStripeSession(
 }
 
 /**
- * Datos fiscales en la factura: el EIN de la LLC y, del cliente, dirección de facturación y (si compra como
- * empresa o profesional) su NIF/CIF y razón social, que Stripe pide en la página de pago.
+ * Datos fiscales en la factura: el EIN de la LLC y, del cliente, solo si quiere (casilla "Compro como empresa"),
+ * su razón social y NIF/CIF. El pago rápido no obliga a rellenar la dirección.
  */
 export function invoiceDataParams() {
   return {
-    billing_address_collection: 'required' as const,
+    billing_address_collection: 'auto' as const,
     tax_id_collection: { enabled: true },
     customer_update: { name: 'auto' as const, address: 'auto' as const },
   };
