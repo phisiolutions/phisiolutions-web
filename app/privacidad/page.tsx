@@ -35,7 +35,7 @@ export default function Page() {
       <p>
         No vendemos tus datos. Solo los usan los proveedores que necesitamos para prestar el servicio, siempre por
         cuenta nuestra: Stripe (pagos y facturas), Netlify (alojamiento de la web), Turso (base de datos de reservas),
-        Zoom (videollamadas) y Google (correo electrónico).
+        Jitsi Meet de 8x8 (videollamadas) y Google (correo electrónico).
       </p>
       <h2>Transferencias internacionales</h2>
       <p>

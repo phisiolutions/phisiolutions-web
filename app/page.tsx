@@ -28,7 +28,7 @@ export default function Home() {
             <span className="tag">Así queda tu reserva</span>
             <h3 style={{ fontSize: 24 }}>Primera sesión informativa</h3>
             <p className="muted">Día y hora que elijas en la agenda</p>
-            <p className="muted">Enlace de Zoom y factura en tu email</p>
+            <p className="muted">Enlace de la videollamada y factura en tu email</p>
             <div className="total">
               <span>Por sesión</span>
               <strong>100 €</strong>
@@ -97,7 +97,10 @@ export default function Home() {
               ['Elige tu servicio', 'Con su precio publicado y el número de sesiones que quieras.'],
               ['Reserva día y hora', 'En la agenda online, con los huecos disponibles en tiempo real.'],
               ['Paga online', 'Con tarjeta o transferencia. Recibes la factura por email.'],
-              ['Conéctate por Zoom', 'El enlace llega a tu email. Solo necesitas móvil u ordenador.'],
+              [
+                'Conéctate a la videollamada',
+                'El enlace llega a tu email. Solo necesitas móvil u ordenador, sin instalar nada.',
+              ],
             ].map(([t, d], i) => (
               <div key={t} className="card">
                 <span className="step-num">{i + 1}</span>

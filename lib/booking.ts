@@ -14,7 +14,7 @@ import {
 import { adminEmail, escapeHtml, sendMail } from './mail';
 import { formatEuros, getService, isBookable, MAX_QUANTITY, type Service } from './services';
 import { bankTransferEnabled, getStripe } from './stripe';
-import { createZoomMeeting, zoomConfigured } from './zoom';
+import { createZoomMeeting, jitsiMeetingUrl, zoomConfigured } from './zoom';
 import { handleGiftEvent } from './gift';
 import { handlePaymentEvent } from './payment';
 
@@ -259,7 +259,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   }
 }
 
-/** Marca la reserva como pagada, crea el Zoom y envía la factura al cliente y a Phisiolutions. */
+/** Marca la reserva como pagada, crea la videollamada y envía la factura al cliente y a Phisiolutions. */
 export async function confirmBooking(bookingId: string, sessionId: string): Promise<void> {
   // Una reserva cancelada por tiempo también se confirma si el pago llega: el dinero ya está cobrado.
   const before = await getBooking(bookingId);
@@ -279,7 +279,7 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
   await finalizeBooking(bookingId, patch, lateAfterCancel);
 }
 
-/** Crea el Zoom (si está configurado) y envía los emails de confirmación una sola vez. */
+/** Crea la videollamada (Zoom si está configurado; si no, Jitsi Meet) y envía los emails de confirmación una sola vez. */
 export async function finalizeBooking(bookingId: string, patch: Partial<Booking> = {}, checkOverlap = false) {
   const booking = (await getBooking(bookingId))!;
   const service = getService(booking.serviceId);
@@ -296,6 +296,8 @@ export async function finalizeBooking(bookingId: string, patch: Partial<Booking>
       console.error('No se pudo crear la reunión de Zoom', e);
     }
   }
+  // Sin Zoom (o si falla), sala de Jitsi Meet gratuita con un enlace único e imposible de adivinar.
+  if (!booking.zoomJoinUrl && !patch.zoomJoinUrl) patch.zoomJoinUrl = jitsiMeetingUrl();
   await updateBooking(bookingId, { holdExpiresUtc: null, ...patch });
 
   const fresh = (await getBooking(bookingId))!;
@@ -340,7 +342,7 @@ export async function sendConfirmationEmails(b: Booking, checkOverlap = false): 
   const name = escapeHtml(b.name);
   const serviceName = escapeHtml(service?.name ?? b.serviceId);
   const zoom = b.zoomJoinUrl
-    ? `<p><a href="${escapeHtml(b.zoomJoinUrl)}" style="background:#FFA514;color:#0F2A3A;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:bold">Entrar en la videollamada de Zoom</a></p>`
+    ? `<p><a href="${escapeHtml(b.zoomJoinUrl)}" style="background:#FFA514;color:#0F2A3A;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:bold">Entrar en la videollamada</a></p><p style="font-size:13px;color:#33505F">Se abre en el navegador, sin instalar nada. Desde el móvil puede pedirte instalar la app gratuita Jitsi Meet.</p>`
     : `<p>Te enviaremos el enlace de la videollamada antes de la sesión.</p>`;
   const invoiceLink = b.invoiceUrl
     ? `<p>Puedes ver y descargar tu factura aquí: <a href="${escapeHtml(b.invoiceUrl)}">factura</a>. También va adjunta en PDF.</p>`
@@ -369,7 +371,7 @@ export async function sendConfirmationEmails(b: Booking, checkOverlap = false): 
     html: layout(`${checkOverlap ? '<p><strong>El pago llegó después de que la hora se liberara. Comprueba que nadie más la haya reservado.</strong></p>' : ''}<p>${isGift ? 'Nueva reserva canjeando una tarjeta regalo (la factura se emitió al comprarla).' : 'Nueva reserva pagada (copia de la factura adjunta).'}</p>
       <p>Cliente: ${name} &lt;${escapeHtml(b.email)}&gt;${b.phone ? `, tel. ${escapeHtml(b.phone)}` : ''}<br>
       Servicio: ${serviceName} × ${b.quantity}<br>Primera sesión: ${escapeHtml(when)}<br>
-      ${isGift ? 'Pago: tarjeta regalo' : `Total: ${formatEuros(b.amountCents)}`}<br>Zoom: ${b.zoomJoinUrl ? escapeHtml(b.zoomJoinUrl) : 'sin crear'}</p>
+      ${isGift ? 'Pago: tarjeta regalo' : `Total: ${formatEuros(b.amountCents)}`}<br>Videollamada: ${b.zoomJoinUrl ? escapeHtml(b.zoomJoinUrl) : 'sin crear'}</p>
       ${b.notes ? `<p>Notas del cliente: ${escapeHtml(b.notes)}</p>` : ''}
       ${b.invoiceUrl ? `<p><a href="${escapeHtml(b.invoiceUrl)}">Ver factura</a></p>` : ''}`),
     attachments,
@@ -389,6 +391,6 @@ async function sendTransferPendingEmail(bookingId: string, session: Stripe.Check
       <p>Hemos guardado tu cita del ${escapeHtml(when)} durante ${TRANSFER_HOLD_DAYS} días mientras llega tu transferencia
       de ${formatEuros(b.amountCents)}.</p>
       ${instructionsUrl ? `<p><a href="${escapeHtml(instructionsUrl)}">Ver los datos bancarios para la transferencia</a></p>` : ''}
-      <p>En cuanto la recibamos te enviaremos la confirmación, el enlace de Zoom y la factura.</p>`),
+      <p>En cuanto la recibamos te enviaremos la confirmación, el enlace de la videollamada y la factura.</p>`),
   });
 }

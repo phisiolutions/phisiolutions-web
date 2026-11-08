@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 // Crea reuniones de Zoom con una app "Server-to-Server OAuth" de la cuenta de Phisiolutions.
 export function zoomConfigured(): boolean {
   return Boolean(process.env.ZOOM_ACCOUNT_ID && process.env.ZOOM_CLIENT_ID && process.env.ZOOM_CLIENT_SECRET);
@@ -35,4 +36,9 @@ export async function createZoomMeeting(opts: {
   if (!res.ok) throw new Error(`Zoom meeting ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as { id: number; join_url: string };
   return { id: String(json.id), joinUrl: json.join_url };
+}
+
+/** Enlace de una sala de Jitsi Meet (gratis). El nombre aleatorio hace que nadie pueda adivinarlo. */
+export function jitsiMeetingUrl(): string {
+  return `https://meet.jit.si/Phisiolutions-${randomBytes(12).toString('hex')}`;
 }

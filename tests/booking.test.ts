@@ -99,6 +99,10 @@ describe('reserva y pago', () => {
     expect(sent.map((m) => m.to)).toEqual(['ana@example.com', 'phisiolutions@gmail.com']);
     expect(sent[0].html).toContain('https://invoice.stripe.test/in_1');
     expect(sent[0].html).toContain('2 sesiones');
+    // Sin Zoom configurado, la cita lleva una sala de Jitsi Meet única, en el email del cliente y en la copia.
+    expect(b?.zoomJoinUrl).toMatch(/^https:\/\/meet\.jit\.si\/Phisiolutions-[0-9a-f]{24}$/);
+    expect(sent[0].html).toContain(b!.zoomJoinUrl!);
+    expect(sent[1].html).toContain(b!.zoomJoinUrl!);
   });
 
   it('transferencia: guarda el hueco, envía instrucciones y confirma al recibir el pago', async () => {

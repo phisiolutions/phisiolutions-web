@@ -360,7 +360,7 @@ export default function BookingForm() {
             <span className="muted">
               {giftMode ? 'Sesión' : 'Primera sesión'}: {when}
             </span>
-            <span className="muted">Videollamada por Zoom</span>
+            <span className="muted">Videollamada online</span>
           </div>
           <div className="total">
             <span style={{ fontWeight: 700 }}>Total</span>

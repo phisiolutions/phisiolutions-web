@@ -55,7 +55,7 @@ export default async function Confirmada({ searchParams }: { searchParams: Promi
       {confirmed && (
         <>
           <p>
-            Te hemos enviado por email la confirmación y el enlace de Zoom
+            Te hemos enviado por email la confirmación y el enlace de la videollamada
             {booking.amountCents > 0 ? ', junto con la factura' : ''}.
           </p>
           <div className="actions">
