@@ -8,7 +8,8 @@ export interface Service {
   audience: Audience;
   name: string;
   description: string;
-  priceCents: number;
+  /** null = precio pendiente: se muestra "Próximamente" y no se puede reservar. */
+  priceCents: number | null;
   durationMinutes: number;
   highlight?: string;
 }
@@ -81,15 +82,54 @@ export const SERVICES: Service[] = [
     durationMinutes: 60,
     highlight: 'El más completo',
   },
+  {
+    id: 'pro-formacion',
+    audience: 'profesionales',
+    name: 'Mejora tus resultados',
+    description:
+      'Si ya eres profesional y quieres mejorar en resultados, te asesoramos sobre las principales demandas o carencias del mercado y cómo formarte en ellas.',
+    priceCents: null,
+    durationMinutes: 60,
+  },
+  {
+    id: 'pro-marketing',
+    audience: 'profesionales',
+    name: 'Date a conocer',
+    description: 'Estudio de marketing y de posicionamiento en la web y en redes sociales para darte a conocer.',
+    priceCents: null,
+    durationMinutes: 60,
+  },
+  {
+    id: 'pro-crecimiento',
+    audience: 'profesionales',
+    name: 'Haz crecer tu negocio',
+    description: 'Cuéntanos tu caso y buscaremos las mejores opciones para incrementar tu volumen de negocio.',
+    priceCents: null,
+    durationMinutes: 60,
+  },
+  {
+    id: 'pro-regalo',
+    audience: 'profesionales',
+    name: 'Regala un estudio de negocio',
+    description: 'Regala un estudio de planificación o de mejora de negocio con nosotros.',
+    priceCents: null,
+    durationMinutes: 60,
+    highlight: 'Para regalar',
+  },
 ];
 
 export const MAX_QUANTITY = 10;
+
+export function isBookable(s: Service): s is Service & { priceCents: number } {
+  return s.priceCents !== null;
+}
 
 export function getService(id: string): Service | undefined {
   return SERVICES.find((s) => s.id === id);
 }
 
-export function formatEuros(cents: number): string {
+export function formatEuros(cents: number | null): string {
+  if (cents === null) return 'Próximamente';
   const euros = cents / 100;
   const whole = Number.isInteger(euros);
   const [int, dec] = euros.toFixed(whole ? 0 : 2).split('.');

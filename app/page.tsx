@@ -63,10 +63,11 @@ export default function Home() {
         <div className="container">
           <div className="section-head">
             <p className="eyebrow">Para profesionales de la salud</p>
-            <h2>Monta tu consulta de fisioterapia con un plan que funcione</h2>
+            <h2>Monta tu consulta o haz crecer la que ya tienes</h2>
             <p className="lead">
               Plan de negocio, estudio de viabilidad, requisitos legales y normativa vigente para cada modalidad:
-              consulta propia, domicilio, empresa, online o centro multidisciplinar.
+              consulta propia, domicilio, empresa, online o centro multidisciplinar. Y si ya ejerces, te ayudamos a
+              formarte en lo que pide el mercado, darte a conocer y aumentar tu volumen de negocio.
             </p>
           </div>
           <div className="grid">
@@ -76,9 +77,13 @@ export default function Home() {
                 <h3>{s.name}</h3>
                 <p className="grow">{s.description}</p>
                 <span className="price">{formatEuros(s.priceCents)}</span>
-                <Link href={`/reservar?servicio=${s.id}`} className={s.highlight ? 'btn btn-accent' : 'btn btn-outline'}>
-                  Reservar
-                </Link>
+                {s.priceCents !== null ? (
+                  <Link href={`/reservar?servicio=${s.id}`} className={s.highlight ? 'btn btn-accent' : 'btn btn-outline'}>
+                    Reservar
+                  </Link>
+                ) : (
+                  <span className="muted">Disponible muy pronto</span>
+                )}
               </div>
             ))}
           </div>

@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { AGENDA } from '@/lib/availability';
-import { MAX_QUANTITY, SERVICES, formatEuros, type Audience } from '@/lib/services';
+import { MAX_QUANTITY, SERVICES as ALL_SERVICES, formatEuros, isBookable, type Audience } from '@/lib/services';
+
+// Solo los servicios con precio publicado se pueden reservar.
+const SERVICES = ALL_SERVICES.filter(isBookable);
 
 const DAYS_SHOWN = 14;
 
@@ -248,7 +251,7 @@ export default function BookingForm() {
         </div>
         <div className="total">
           <span style={{ fontWeight: 700 }}>Total</span>
-          <strong>{formatEuros(service.priceCents * quantity)}</strong>
+          <strong>{formatEuros(service.priceCents! * quantity)}</strong>
         </div>
         {error && (
           <p className="error" role="alert">

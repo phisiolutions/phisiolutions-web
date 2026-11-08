@@ -124,6 +124,10 @@ describe('reserva y pago', () => {
     await expect(startCheckout({ ...input, email: 'otro@example.com' }, now)).resolves.toBeTruthy();
   });
 
+  it('no deja reservar servicios sin precio publicado', async () => {
+    await expect(startCheckout({ ...input, serviceId: 'pro-marketing' }, now)).rejects.toBeInstanceOf(BookingError);
+  });
+
   it('rechaza datos incompletos o sin consentimiento', async () => {
     await expect(startCheckout({ ...input, consent: false }, now)).rejects.toBeInstanceOf(BookingError);
     await expect(startCheckout({ ...input, email: 'no-es-email' }, now)).rejects.toBeInstanceOf(BookingError);

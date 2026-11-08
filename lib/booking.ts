@@ -12,7 +12,7 @@ import {
   type Booking,
 } from './db';
 import { adminEmail, escapeHtml, sendMail } from './mail';
-import { formatEuros, getService, MAX_QUANTITY } from './services';
+import { formatEuros, getService, isBookable, MAX_QUANTITY, type Service } from './services';
 import { bankTransferEnabled, getStripe } from './stripe';
 import { createZoomMeeting, zoomConfigured } from './zoom';
 
@@ -50,7 +50,7 @@ export async function startCheckout(raw: unknown, now = DateTime.utc()): Promise
   if (!parsed.success) throw new BookingError('Revisa los datos del formulario.');
   const input = parsed.data;
   const service = getService(input.serviceId);
-  if (!service) throw new BookingError('Servicio no válido.');
+  if (!service || !isBookable(service)) throw new BookingError('Servicio no válido.');
 
   const start = DateTime.fromISO(input.startUtc, { zone: 'utc' });
   if (!start.isValid) throw new BookingError('Hora no válida.');
@@ -97,7 +97,7 @@ export async function startCheckout(raw: unknown, now = DateTime.utc()): Promise
 async function createStripeSession(
   booking: Booking,
   input: BookingInput,
-  service: NonNullable<ReturnType<typeof getService>>,
+  service: Service & { priceCents: number },
   startUtc: string,
   now: DateTime,
 ): Promise<{ url: string; bookingId: string }> {
