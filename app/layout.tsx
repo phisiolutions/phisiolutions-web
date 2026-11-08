@@ -41,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/aviso-legal">Aviso legal</Link>
               <Link href="/privacidad">Privacidad</Link>
               <Link href="/condiciones">Condiciones de contratación</Link>
+              <Link href="/pagar">Realizar un pago</Link>
             </nav>
           </div>
         </footer>

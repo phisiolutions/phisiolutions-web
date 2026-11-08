@@ -142,3 +142,12 @@ export function formatEuros(cents: number | null): string {
   const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return (dec ? `${grouped},${dec}` : grouped) + ' €';
 }
+
+/** Convierte "150", "150,50" o "1.500,00" en céntimos. */
+export function parseEuros(raw: string): number | null {
+  const t = raw.trim().replace(/\s|€/g, '');
+  if (!/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+([.,]\d{1,2})?$/.test(t)) return null;
+  const normalized = /,\d{1,2}$/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t.replace(/\.(?=\d{3}(\.|$))/g, '');
+  const cents = Math.round(Number(normalized) * 100);
+  return Number.isFinite(cents) ? cents : null;
+}

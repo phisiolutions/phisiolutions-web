@@ -16,6 +16,7 @@ import { formatEuros, getService, isBookable, MAX_QUANTITY, type Service } from 
 import { bankTransferEnabled, getStripe } from './stripe';
 import { createZoomMeeting, zoomConfigured } from './zoom';
 import { handleGiftEvent } from './gift';
+import { handlePaymentEvent } from './payment';
 
 export const CHECKOUT_HOLD_MINUTES = 31; // Stripe exige al menos 30 min de validez.
 export const TRANSFER_HOLD_DAYS = 3; // Tiempo que guardamos el hueco esperando la transferencia.
@@ -219,6 +220,7 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   if (event.type.startsWith('checkout.session.')) {
     const session = event.data.object as Stripe.Checkout.Session;
     if (session.metadata?.gift_id) return handleGiftEvent(event.type, session);
+    if (session.metadata?.payment_id) return handlePaymentEvent(event.type, session);
   }
   switch (event.type) {
     case 'checkout.session.completed': {
