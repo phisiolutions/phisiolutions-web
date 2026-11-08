@@ -16,6 +16,7 @@ export async function GET() {
     'SMTP_PASS',
     'ADMIN_EMAIL',
     'ZOOM_ACCOUNT_ID',
+    'ADMIN_PASSWORD',
   ];
   const configuradas = Object.fromEntries(vars.map((v) => [v, Boolean(process.env[v]?.trim())]));
   let baseDeDatos = 'sin configurar';
