@@ -12,6 +12,8 @@ export interface Service {
   priceCents: number | null;
   durationMinutes: number;
   highlight?: string;
+  /** Se vende como tarjeta regalo: quien paga no elige hora; la persona que la recibe la canjea. */
+  gift?: boolean;
 }
 
 export const SERVICES: Service[] = [
@@ -115,14 +117,18 @@ export const SERVICES: Service[] = [
     priceCents: null,
     durationMinutes: 60,
     highlight: 'Para regalar',
+    gift: true,
   },
 ];
 
 export const MAX_QUANTITY = 10;
 
+/** Servicios con precio publicado que se reservan directamente (no las tarjetas regalo). */
 export function isBookable(s: Service): s is Service & { priceCents: number } {
-  return s.priceCents !== null;
+  return s.priceCents !== null && !s.gift;
 }
+
+export const GIFT_VALID_MONTHS = 12;
 
 export function getService(id: string): Service | undefined {
   return SERVICES.find((s) => s.id === id);

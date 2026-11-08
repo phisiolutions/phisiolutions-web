@@ -88,6 +88,25 @@ export async function ensureSchema() {
             created_at TEXT NOT NULL
           )`,
           `CREATE INDEX IF NOT EXISTS bookings_start ON bookings (start_utc)`,
+          `CREATE TABLE IF NOT EXISTS gifts (
+            id TEXT PRIMARY KEY,
+            code TEXT NOT NULL UNIQUE,
+            service_id TEXT NOT NULL,
+            buyer_name TEXT NOT NULL,
+            buyer_email TEXT NOT NULL,
+            recipient_name TEXT NOT NULL,
+            message TEXT,
+            amount_cents INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            stripe_session_id TEXT UNIQUE,
+            invoice_pdf_url TEXT,
+            invoice_url TEXT,
+            booking_id TEXT,
+            email_sent INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            paid_at TEXT,
+            expires_at TEXT
+          )`,
         ],
         'write',
       )

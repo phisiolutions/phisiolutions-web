@@ -50,6 +50,7 @@ h3 { font-size: 20px; }
 .card p { margin: 0; color: var(--muted); }
 .card .grow { flex-grow: 1; }
 .card-featured { border: 2px solid var(--teal); background: #F4FCFE; }
+.section-dark .card:not(.card-dark) { color: var(--ink); }
 .card-dark { background: var(--ink-2); border-color: var(--ink-2); color: var(--white); }
 .card-dark p { color: var(--muted-on-dark); }
 .price { font-size: 32px; font-weight: 800; color: var(--ink); }

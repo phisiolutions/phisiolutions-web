@@ -1,16 +1,20 @@
 import Link from 'next/link';
 import { formatLocal } from '@/lib/availability';
 import { confirmBooking } from '@/lib/booking';
-import { getBookingBySession, type Booking } from '@/lib/db';
+import { getBooking, getBookingBySession, type Booking } from '@/lib/db';
 import { getStripe } from '@/lib/stripe';
 import { getService, formatEuros } from '@/lib/services';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Reserva · Phisiolutions' };
 
-export default async function Confirmada({ searchParams }: { searchParams: Promise<{ session_id?: string }> }) {
-  const { session_id } = await searchParams;
-  let booking: Booking | null = session_id ? await getBookingBySession(session_id) : null;
+export default async function Confirmada({ searchParams }: { searchParams: Promise<{ session_id?: string; reserva?: string }> }) {
+  const { session_id, reserva } = await searchParams;
+  let booking: Booking | null = session_id
+    ? await getBookingBySession(session_id)
+    : reserva
+      ? await getBooking(reserva)
+      : null;
 
   // Si el cliente vuelve antes de que llegue el webhook, confirmamos aquí (es idempotente).
   if (booking && session_id && booking.status !== 'confirmed') {
@@ -46,11 +50,14 @@ export default async function Confirmada({ searchParams }: { searchParams: Promi
       <h1>{confirmed ? '¡Reserva confirmada!' : awaiting ? 'Reserva recibida' : 'Reserva no completada'}</h1>
       <p className="lead">
         {service?.name} × {booking.quantity}. Primera sesión: {when} (hora de Madrid). Total:{' '}
-        {formatEuros(booking.amountCents)}.
+        {booking.amountCents === 0 ? 'tarjeta regalo' : formatEuros(booking.amountCents)}.
       </p>
       {confirmed && (
         <>
-          <p>Te hemos enviado por email la confirmación, el enlace de Zoom y la factura.</p>
+          <p>
+            Te hemos enviado por email la confirmación y el enlace de Zoom
+            {booking.amountCents > 0 ? ', junto con la factura' : ''}.
+          </p>
           <div className="actions">
             {booking.invoicePdfUrl && (
               <a className="btn btn-accent" href={booking.invoicePdfUrl}>

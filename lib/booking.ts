@@ -15,6 +15,7 @@ import { adminEmail, escapeHtml, sendMail } from './mail';
 import { formatEuros, getService, isBookable, MAX_QUANTITY, type Service } from './services';
 import { bankTransferEnabled, getStripe } from './stripe';
 import { createZoomMeeting, zoomConfigured } from './zoom';
+import { handleGiftEvent } from './gift';
 
 export const CHECKOUT_HOLD_MINUTES = 31; // Stripe exige al menos 30 min de validez.
 export const TRANSFER_HOLD_DAYS = 3; // Tiempo que guardamos el hueco esperando la transferencia.
@@ -40,7 +41,7 @@ export class BookingError extends Error {
   }
 }
 
-function siteUrl(): string {
+export function siteUrl(): string {
   return (process.env.SITE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
 }
 
@@ -111,8 +112,8 @@ async function createStripeSession(
   });
 
   const when = formatLocal(startUtc);
-  const transfer = bankTransferEnabled();
   const params: Stripe.Checkout.SessionCreateParams = {
+    ...paymentMethodParams(),
     mode: 'payment',
     customer: customer.id,
     locale: 'es',
@@ -131,18 +132,6 @@ async function createStripeSession(
         },
       },
     ],
-    payment_method_types: transfer ? ['card', 'customer_balance'] : ['card'],
-    payment_method_options: transfer
-      ? {
-          customer_balance: {
-            funding_type: 'bank_transfer',
-            bank_transfer: {
-              type: 'eu_bank_transfer',
-              eu_bank_transfer: { country: process.env.STRIPE_EU_BANK_COUNTRY ?? 'ES' },
-            },
-          },
-        }
-      : undefined,
     invoice_creation: {
       enabled: true,
       invoice_data: {
@@ -158,21 +147,65 @@ async function createStripeSession(
     cancel_url: `${siteUrl()}/reservar?cancelada=1`,
   };
 
-  let session: Stripe.Checkout.Session;
-  try {
-    session = await stripe.checkout.sessions.create(params);
-  } catch (e) {
-    if (!transfer) throw e;
-    // Si la transferencia no está disponible en la cuenta, seguimos solo con tarjeta.
-    console.error('Stripe rechazó la transferencia; reintento solo con tarjeta:', (e as Error).message);
-    session = await stripe.checkout.sessions.create({
-      ...params,
-      payment_method_types: ['card'],
-      payment_method_options: undefined,
-    });
-  }
+  const session = await createCheckoutSession(params);
   await updateBooking(booking.id, { stripeSessionId: session.id });
   return { url: session.url!, bookingId: booking.id };
+}
+
+/** Tarjeta y, si está activada, transferencia bancaria en EUR. */
+export function paymentMethodParams(): Pick<
+  Stripe.Checkout.SessionCreateParams,
+  'payment_method_types' | 'payment_method_options'
+> {
+  const transfer = bankTransferEnabled();
+  return {
+    payment_method_types: transfer ? ['card', 'customer_balance'] : ['card'],
+    payment_method_options: transfer
+      ? {
+          customer_balance: {
+            funding_type: 'bank_transfer',
+            bank_transfer: {
+              type: 'eu_bank_transfer',
+              eu_bank_transfer: { country: process.env.STRIPE_EU_BANK_COUNTRY ?? 'ES' },
+            },
+          },
+        }
+      : undefined,
+  };
+}
+
+/** Crea la sesión de pago; si la transferencia no está disponible en la cuenta, sigue solo con tarjeta. */
+export async function createCheckoutSession(params: Stripe.Checkout.SessionCreateParams) {
+  const stripe = getStripe();
+  try {
+    return await stripe.checkout.sessions.create(params);
+  } catch (e) {
+    if (!params.payment_method_types?.includes('customer_balance')) throw e;
+    console.error('Stripe rechazó la transferencia; reintento solo con tarjeta:', (e as Error).message);
+    return stripe.checkout.sessions.create({ ...params, payment_method_types: ['card'], payment_method_options: undefined });
+  }
+}
+
+/** Factura de una sesión de pago (si Stripe la ha generado). */
+export async function sessionInvoice(sessionId: string): Promise<Stripe.Invoice | null> {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['invoice'] });
+  const invoice = session.invoice as Stripe.Invoice | string | null;
+  if (typeof invoice === 'string') return stripe.invoices.retrieve(invoice);
+  return invoice;
+}
+
+/** Instrucciones de transferencia de una sesión pendiente. */
+export async function transferInstructionsUrl(session: Stripe.Checkout.Session): Promise<string | null> {
+  try {
+    if (typeof session.payment_intent === 'string') {
+      const pi = await getStripe().paymentIntents.retrieve(session.payment_intent);
+      return pi.next_action?.display_bank_transfer_instructions?.hosted_instructions_url ?? null;
+    }
+  } catch (e) {
+    console.error('No se pudieron leer las instrucciones de transferencia', e);
+  }
+  return null;
 }
 
 async function bookingFromSession(session: Stripe.Checkout.Session): Promise<Booking | null> {
@@ -183,6 +216,10 @@ async function bookingFromSession(session: Stripe.Checkout.Session): Promise<Boo
 
 /** Procesa los eventos del webhook de Stripe. Es seguro recibir el mismo evento varias veces. */
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+  if (event.type.startsWith('checkout.session.')) {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.gift_id) return handleGiftEvent(event.type, session);
+  }
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -230,19 +267,20 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
   if (!booking) return;
   if (!moved && booking.confirmationSent) return;
 
-  const service = getService(booking.serviceId);
-  const stripe = getStripe();
-  const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['invoice'] });
-  let invoice = session.invoice as Stripe.Invoice | string | null;
-  if (typeof invoice === 'string') invoice = await stripe.invoices.retrieve(invoice);
-
+  const invoice = await sessionInvoice(sessionId);
   const patch: Partial<Booking> = { holdExpiresUtc: null };
   if (invoice) {
     patch.stripeInvoiceId = invoice.id ?? null;
     patch.invoicePdfUrl = invoice.invoice_pdf ?? null;
     patch.invoiceUrl = invoice.hosted_invoice_url ?? null;
   }
+  await finalizeBooking(bookingId, patch, lateAfterCancel);
+}
 
+/** Crea el Zoom (si está configurado) y envía los emails de confirmación una sola vez. */
+export async function finalizeBooking(bookingId: string, patch: Partial<Booking> = {}, checkOverlap = false) {
+  const booking = (await getBooking(bookingId))!;
+  const service = getService(booking.serviceId);
   if (!booking.zoomJoinUrl && zoomConfigured()) {
     try {
       const meeting = await createZoomMeeting({
@@ -256,12 +294,12 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
       console.error('No se pudo crear la reunión de Zoom', e);
     }
   }
-  await updateBooking(bookingId, patch);
+  await updateBooking(bookingId, { holdExpiresUtc: null, ...patch });
 
   const fresh = (await getBooking(bookingId))!;
   if (fresh.confirmationSent) return;
   try {
-    await sendConfirmationEmails(fresh, lateAfterCancel);
+    await sendConfirmationEmails(fresh, checkOverlap);
     await updateBooking(bookingId, { confirmationSent: 1 });
   } catch (e) {
     // La reserva sigue confirmada; el email se reintentará cuando Stripe reenvíe el evento.
@@ -270,7 +308,7 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
   }
 }
 
-async function invoiceAttachment(pdfUrl: string | null) {
+export async function invoiceAttachment(pdfUrl: string | null) {
   if (!pdfUrl) return [];
   try {
     const res = await fetch(pdfUrl);
@@ -287,7 +325,7 @@ async function invoiceAttachment(pdfUrl: string | null) {
   }
 }
 
-function layout(body: string): string {
+export function layout(body: string): string {
   return `<div style="font-family:Arial,sans-serif;color:#0F2A3A;max-width:560px;margin:0 auto;line-height:1.5">
     <p style="font-size:22px;font-weight:bold;color:#0B6E8A;margin:0 0 16px">Phisiolutions</p>${body}
     <p style="font-size:13px;color:#33505F;margin-top:32px">Phisiolutions LLC</p></div>`;
@@ -305,6 +343,8 @@ export async function sendConfirmationEmails(b: Booking, checkOverlap = false): 
   const invoiceLink = b.invoiceUrl
     ? `<p>Puedes ver y descargar tu factura aquí: <a href="${escapeHtml(b.invoiceUrl)}">factura</a>. También va adjunta en PDF.</p>`
     : '';
+  const isGift = b.amountCents === 0;
+  const paidLine = isGift ? 'Pagado con tarjeta regalo' : `Total pagado: ${formatEuros(b.amountCents)}`;
   const more =
     b.quantity > 1
       ? `<p>Has contratado ${b.quantity} sesiones. Responde a este email para agendar las siguientes.</p>`
@@ -314,20 +354,20 @@ export async function sendConfirmationEmails(b: Booking, checkOverlap = false): 
     to: b.email,
     subject: `Reserva confirmada: ${service?.name ?? 'sesión'} el ${when}`,
     html: layout(`<p>Hola ${name},</p>
-      <p>Tu reserva está confirmada y pagada.</p>
+      <p>Tu reserva está confirmada${isGift ? '' : ' y pagada'}.</p>
       <p><strong>${serviceName}</strong> × ${b.quantity}<br>Primera sesión: ${escapeHtml(when)} (hora de Madrid)<br>
-      Total pagado: ${formatEuros(b.amountCents)}</p>${zoom}${more}${invoiceLink}
+      ${paidLine}</p>${zoom}${more}${invoiceLink}
       <p>Si necesitas cambiar la cita, responde a este email.</p>`),
     attachments,
   });
 
   await sendMail({
     to: adminEmail(),
-    subject: `${checkOverlap ? 'REVISAR posible solape. ' : ''}Nueva reserva pagada: ${b.name}, ${service?.name ?? b.serviceId}, ${when}`,
-    html: layout(`${checkOverlap ? '<p><strong>El pago llegó después de que la hora se liberara. Comprueba que nadie más la haya reservado.</strong></p>' : ''}<p>Nueva reserva pagada (copia de la factura adjunta).</p>
+    subject: `${checkOverlap ? 'REVISAR posible solape. ' : ''}${isGift ? 'Nueva reserva con tarjeta regalo' : 'Nueva reserva pagada'}: ${b.name}, ${service?.name ?? b.serviceId}, ${when}`,
+    html: layout(`${checkOverlap ? '<p><strong>El pago llegó después de que la hora se liberara. Comprueba que nadie más la haya reservado.</strong></p>' : ''}<p>${isGift ? 'Nueva reserva canjeando una tarjeta regalo (la factura se emitió al comprarla).' : 'Nueva reserva pagada (copia de la factura adjunta).'}</p>
       <p>Cliente: ${name} &lt;${escapeHtml(b.email)}&gt;${b.phone ? `, tel. ${escapeHtml(b.phone)}` : ''}<br>
       Servicio: ${serviceName} × ${b.quantity}<br>Primera sesión: ${escapeHtml(when)}<br>
-      Total: ${formatEuros(b.amountCents)}<br>Zoom: ${b.zoomJoinUrl ? escapeHtml(b.zoomJoinUrl) : 'sin crear'}</p>
+      ${isGift ? 'Pago: tarjeta regalo' : `Total: ${formatEuros(b.amountCents)}`}<br>Zoom: ${b.zoomJoinUrl ? escapeHtml(b.zoomJoinUrl) : 'sin crear'}</p>
       ${b.notes ? `<p>Notas del cliente: ${escapeHtml(b.notes)}</p>` : ''}
       ${b.invoiceUrl ? `<p><a href="${escapeHtml(b.invoiceUrl)}">Ver factura</a></p>` : ''}`),
     attachments,
@@ -337,15 +377,7 @@ export async function sendConfirmationEmails(b: Booking, checkOverlap = false): 
 async function sendTransferPendingEmail(bookingId: string, session: Stripe.Checkout.Session) {
   const b = await getBooking(bookingId);
   if (!b) return;
-  let instructionsUrl: string | null = null;
-  try {
-    if (typeof session.payment_intent === 'string') {
-      const pi = await getStripe().paymentIntents.retrieve(session.payment_intent);
-      instructionsUrl = pi.next_action?.display_bank_transfer_instructions?.hosted_instructions_url ?? null;
-    }
-  } catch (e) {
-    console.error('No se pudieron leer las instrucciones de transferencia', e);
-  }
+  const instructionsUrl = await transferInstructionsUrl(session);
   const service = getService(b.serviceId);
   const when = formatLocal(b.startUtc);
   await sendMail({
