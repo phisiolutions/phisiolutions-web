@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { formatEuros, parseEuros } from '@/lib/services';
 
 export default function LinkMaker({ site }: { site: string }) {
@@ -9,6 +10,8 @@ export default function LinkMaker({ site }: { site: string }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
 
   const cents = parseEuros(amount);
   const valid = cents !== null && cents >= 100 && cents <= 1_000_000 && concept.trim().length >= 3;
@@ -23,6 +26,13 @@ export default function LinkMaker({ site }: { site: string }) {
   const digits = phone.replace(/\D/g, '');
   const waNumber = digits.length === 9 ? `34${digits}` : digits.replace(/^00/, '');
   const enc = encodeURIComponent(text);
+
+  useEffect(() => {
+    if (!showQr || !link) return setQr(null);
+    QRCode.toDataURL(link, { width: 640, margin: 2, color: { dark: '#0F2A3A', light: '#FFFFFF' } })
+      .then(setQr)
+      .catch(() => setQr(null));
+  }, [showQr, link]);
 
   async function copy() {
     try {
@@ -99,10 +109,26 @@ export default function LinkMaker({ site }: { site: string }) {
             >
               Email
             </a>
+            <button type="button" className="btn btn-outline" onClick={() => setShowQr((v) => !v)}>
+              {showQr ? 'Ocultar QR' : 'Mostrar QR'}
+            </button>
             <a className="btn btn-outline" href={link} target="_blank" rel="noreferrer">
               Ver cómo lo verá el cliente
             </a>
           </div>
+          {showQr && qr && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qr} alt="Código QR del enlace de pago" style={{ width: '100%', maxWidth: 320 }} />
+              <strong>
+                {formatEuros(cents!)} · {concept.trim()}
+              </strong>
+              <span className="muted">El cliente lo escanea con la cámara de su móvil y paga.</span>
+              <a className="btn btn-outline" href={qr} download="qr-pago-phisiolutions.png">
+                Guardar imagen del QR
+              </a>
+            </div>
+          )}
           <p className="muted" style={{ margin: 0 }}>
             WhatsApp y SMS abren la aplicación con el mensaje ya escrito; solo tienes que pulsar enviar. Sin móvil,
             WhatsApp te deja elegir el contacto.
