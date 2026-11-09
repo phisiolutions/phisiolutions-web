@@ -231,7 +231,7 @@ export async function sessionInvoice(sessionId: string, waitMs = INVOICE_WAIT_MS
 }
 
 /** Tiempo máximo de espera a que la factura figure como pagada (los tests lo ponen a 0). */
-export let INVOICE_WAIT_MS = 8000;
+export let INVOICE_WAIT_MS = 4500; // corto: las funciones de Netlify cortan a los 10 s
 export function setInvoiceWaitForTests(ms: number) {
   INVOICE_WAIT_MS = ms;
 }
