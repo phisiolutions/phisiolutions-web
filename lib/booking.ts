@@ -184,7 +184,7 @@ export function paymentMethodParams(): Pick<
             funding_type: 'bank_transfer',
             bank_transfer: {
               type: 'eu_bank_transfer',
-              eu_bank_transfer: { country: process.env.STRIPE_EU_BANK_COUNTRY ?? 'ES' },
+              eu_bank_transfer: { country: process.env.STRIPE_EU_BANK_COUNTRY ?? 'IE' },
             },
           },
         }
