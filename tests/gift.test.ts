@@ -7,7 +7,7 @@ import type Stripe from 'stripe';
 import { resetDbForTests, getBooking } from '@/lib/db';
 import { setStripeForTests } from '@/lib/stripe';
 import { setMailerForTests, type Mail } from '@/lib/mail';
-import { handleStripeEvent, BookingError } from '@/lib/booking';
+import { handleStripeEvent, BookingError, setInvoiceWaitForTests } from '@/lib/booking';
 import { startGiftCheckout, redeemGift, getGift, checkCode } from '@/lib/gift';
 
 const now = DateTime.fromISO('2026-11-09T06:00:00Z') as DateTime<true>;
@@ -54,6 +54,7 @@ const buyer = {
 const redeem = { startUtc: slot, name: 'Marta Gil', email: 'marta@example.com', consent: true as const };
 
 beforeEach(() => {
+  setInvoiceWaitForTests(0);
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'phisio-')), 'test.db');
   resetDbForTests(`file:${file}`);
   sent = [];
@@ -102,9 +103,9 @@ describe('tarjeta regalo', () => {
     expect(b.amountCents).toBe(0);
     expect(sent.map((m) => m.to)).toEqual(['marta@example.com', 'phisiolutions@gmail.com']);
     expect((await getGift(gift.id))!.status).toBe('redeemed');
-    await expect(
-      redeemGift({ ...redeem, code: gift.code, startUtc: '2026-11-10T08:00:00Z' }, now),
-    ).rejects.toThrow('ya se ha usado');
+    await expect(redeemGift({ ...redeem, code: gift.code, startUtc: '2026-11-10T08:00:00Z' }, now)).rejects.toThrow(
+      'ya se ha usado',
+    );
   });
 
   it('caduca a los 12 meses', async () => {

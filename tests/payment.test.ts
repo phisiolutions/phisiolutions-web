@@ -6,7 +6,7 @@ import type Stripe from 'stripe';
 import { resetDbForTests } from '@/lib/db';
 import { setStripeForTests } from '@/lib/stripe';
 import { setMailerForTests, type Mail } from '@/lib/mail';
-import { handleStripeEvent, BookingError } from '@/lib/booking';
+import { handleStripeEvent, BookingError, setInvoiceWaitForTests } from '@/lib/booking';
 import { startPaymentCheckout, getPayment } from '@/lib/payment';
 import { parseEuros } from '@/lib/services';
 
@@ -15,6 +15,7 @@ let created: Stripe.Checkout.SessionCreateParams[];
 let sessions: Record<string, Partial<Stripe.Checkout.Session>>;
 
 beforeEach(() => {
+  setInvoiceWaitForTests(0);
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'phisio-')), 'test.db');
   resetDbForTests(`file:${file}`);
   sent = [];
@@ -44,7 +45,13 @@ beforeEach(() => {
   });
 });
 
-const input = { amountCents: 25050, concept: 'Asesoría adicional', name: 'Ana López', email: 'ana@example.com', consent: true as const };
+const input = {
+  amountCents: 25050,
+  concept: 'Asesoría adicional',
+  name: 'Ana López',
+  email: 'ana@example.com',
+  consent: true as const,
+};
 
 describe('pago libre', () => {
   it('interpreta importes en formato español', () => {
@@ -64,11 +71,40 @@ describe('pago libre', () => {
     expect(created[0].tax_id_collection).toEqual({ enabled: true });
     expect(created[0].billing_address_collection).toBe('auto');
     const ev = () =>
-      ({ type: 'checkout.session.completed', data: { object: { ...sessions.cs_1, payment_status: 'paid' } } }) as unknown as Stripe.Event;
+      ({
+        type: 'checkout.session.completed',
+        data: { object: { ...sessions.cs_1, payment_status: 'paid' } },
+      }) as unknown as Stripe.Event;
     await handleStripeEvent(ev());
     await handleStripeEvent(ev());
     expect((await getPayment(paymentId))!.status).toBe('paid');
     expect(sent.map((m) => m.to)).toEqual(['ana@example.com', 'phisiolutions@gmail.com']);
+  });
+
+  it('espera a que Stripe marque la factura como pagada antes de enviarla', async () => {
+    setInvoiceWaitForTests(5000);
+    const stripe = (await import('@/lib/stripe')).getStripe() as unknown as {
+      checkout: { sessions: { retrieve: ReturnType<typeof vi.fn> } };
+      invoices: { retrieve: ReturnType<typeof vi.fn> };
+    };
+    stripe.checkout.sessions.retrieve.mockImplementation(async (id: string) => ({
+      ...sessions[id],
+      invoice: { id: 'in_1', status: 'open', invoice_pdf: null, hosted_invoice_url: 'https://invoice.stripe.test/open' },
+    }));
+    stripe.invoices.retrieve.mockResolvedValue({
+      id: 'in_1',
+      status: 'paid',
+      invoice_pdf: null,
+      hosted_invoice_url: 'https://invoice.stripe.test/paid',
+    });
+    const { paymentId } = await startPaymentCheckout(input);
+    sessions.cs_1.payment_status = 'paid';
+    await handleStripeEvent({
+      type: 'checkout.session.completed',
+      data: { object: { ...sessions.cs_1, payment_status: 'paid' } },
+    } as unknown as Stripe.Event);
+    expect(stripe.invoices.retrieve).toHaveBeenCalled();
+    expect((await getPayment(paymentId))!.invoiceUrl).toBe('https://invoice.stripe.test/paid');
   });
 
   it('rechaza importes fuera de rango', async () => {

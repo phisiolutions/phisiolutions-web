@@ -209,12 +209,31 @@ export async function createCheckoutSession(params: Stripe.Checkout.SessionCreat
 }
 
 /** Factura de una sesión de pago (si Stripe la ha generado). */
-export async function sessionInvoice(sessionId: string): Promise<Stripe.Invoice | null> {
+export async function sessionInvoice(sessionId: string, waitMs = INVOICE_WAIT_MS): Promise<Stripe.Invoice | null> {
   const stripe = getStripe();
   const session = await stripe.checkout.sessions.retrieve(sessionId, { expand: ['invoice'] });
-  const invoice = session.invoice as Stripe.Invoice | string | null;
-  if (typeof invoice === 'string') return stripe.invoices.retrieve(invoice);
+  let invoice = session.invoice as Stripe.Invoice | string | null;
+  if (typeof invoice === 'string') invoice = await stripe.invoices.retrieve(invoice);
+  // Stripe crea la factura y la marca como pagada unos segundos después del pago. Si enviamos el PDF antes,
+  // sale como "Importe adeudado". Esperamos un poco a que figure como pagada.
+  const deadline = Date.now() + waitMs;
+  while (
+    invoice &&
+    invoice.id &&
+    invoice.status !== 'paid' &&
+    session.payment_status === 'paid' &&
+    Date.now() < deadline
+  ) {
+    await new Promise((r) => setTimeout(r, 1500));
+    invoice = await stripe.invoices.retrieve(invoice.id);
+  }
   return invoice;
+}
+
+/** Tiempo máximo de espera a que la factura figure como pagada (los tests lo ponen a 0). */
+export let INVOICE_WAIT_MS = 8000;
+export function setInvoiceWaitForTests(ms: number) {
+  INVOICE_WAIT_MS = ms;
 }
 
 /** Instrucciones de transferencia de una sesión pendiente. */

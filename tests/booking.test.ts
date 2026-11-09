@@ -7,7 +7,7 @@ import type Stripe from 'stripe';
 import { resetDbForTests, getBooking, busyBetween } from '@/lib/db';
 import { setStripeForTests } from '@/lib/stripe';
 import { setMailerForTests, type Mail } from '@/lib/mail';
-import { startCheckout, handleStripeEvent, BookingError } from '@/lib/booking';
+import { startCheckout, handleStripeEvent, BookingError, setInvoiceWaitForTests } from '@/lib/booking';
 
 const now = DateTime.fromISO('2026-11-09T06:00:00Z') as DateTime<true>;
 const slot = '2026-11-10T16:00:00Z'; // martes 17:00 Madrid
@@ -36,7 +36,9 @@ function fakeStripe() {
     invoices: { retrieve: vi.fn() },
     paymentIntents: {
       retrieve: vi.fn(async () => ({
-        next_action: { display_bank_transfer_instructions: { hosted_instructions_url: 'https://pay.stripe.test/instr' } },
+        next_action: {
+          display_bank_transfer_instructions: { hosted_instructions_url: 'https://pay.stripe.test/instr' },
+        },
       })),
     },
   } as unknown as Stripe;
@@ -57,6 +59,7 @@ function event(type: string, sessionId: string, extra: Partial<Stripe.Checkout.S
 }
 
 beforeEach(() => {
+  setInvoiceWaitForTests(0);
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'phisio-')), 'test.db');
   resetDbForTests(`file:${file}`);
   sent = [];
@@ -107,7 +110,9 @@ describe('reserva y pago', () => {
 
   it('transferencia: guarda el hueco, envía instrucciones y confirma al recibir el pago', async () => {
     const { bookingId } = await startCheckout(input, now);
-    await handleStripeEvent(event('checkout.session.completed', 'cs_1', { payment_status: 'unpaid', payment_intent: 'pi_1' }));
+    await handleStripeEvent(
+      event('checkout.session.completed', 'cs_1', { payment_status: 'unpaid', payment_intent: 'pi_1' }),
+    );
     let b = await getBooking(bookingId);
     expect(b?.status).toBe('awaiting_transfer');
     expect(sent).toHaveLength(1);
