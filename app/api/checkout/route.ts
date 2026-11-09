@@ -1,3 +1,4 @@
+import { isTestMode } from '@/lib/stripe';
 import { NextResponse } from 'next/server';
 import { BookingError, startCheckout } from '@/lib/booking';
 
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     if (e instanceof BookingError) return NextResponse.json({ error: e.message }, { status: e.status });
     console.error(e);
     // En modo de pruebas mostramos el motivo para poder corregirlo.
-    const detalle = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test') ? ` (${(e as Error).message})` : '';
+    const detalle = isTestMode() ? ` (${(e as Error).message})` : '';
     return NextResponse.json(
       { error: `No hemos podido iniciar el pago. Inténtalo de nuevo.${detalle}` },
       { status: 500 },

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { handleStripeEvent } from '@/lib/booking';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, isTestMode } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error('Error procesando el evento de Stripe', event.type, e);
     // En modo pruebas mostramos el motivo para poder verlo en el panel de Stripe.
-    const detail = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test') ? (e as Error).message : undefined;
+    const detail = isTestMode() ? (e as Error).message : undefined;
     return NextResponse.json({ error: 'Error interno', detail }, { status: 500 });
   }
   return NextResponse.json({ received: true });

@@ -1,3 +1,4 @@
+import { getStripe, stripeMode } from '@/lib/stripe';
 import { NextResponse } from 'next/server';
 import { db, dbConfigured, ensureSchema } from '@/lib/db';
 import { verifyMail } from '@/lib/mail';
@@ -29,11 +30,16 @@ export async function GET() {
       baseDeDatos = `error: ${(e as Error).message.slice(0, 200)}`;
     }
   }
-  const stripeModo = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live')
-    ? 'real'
-    : process.env.STRIPE_SECRET_KEY?.startsWith('sk_test')
-      ? 'pruebas'
-      : 'sin configurar';
+  const stripeModo = stripeMode();
+  let stripeConexion = 'sin configurar';
+  if (stripeModo !== 'sin configurar') {
+    try {
+      await getStripe().customers.list({ limit: 1 });
+      stripeConexion = 'ok';
+    } catch (e) {
+      stripeConexion = `error: ${(e as Error).message.slice(0, 200)}`;
+    }
+  }
   const correo = process.env.SMTP_USER && process.env.SMTP_PASS ? await verifyMail() : 'sin configurar';
-  return NextResponse.json({ baseDeDatos, correo, stripeModo, configuradas });
+  return NextResponse.json({ baseDeDatos, correo, stripeModo, stripeConexion, configuradas });
 }
