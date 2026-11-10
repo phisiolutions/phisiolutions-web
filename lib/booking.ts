@@ -230,6 +230,11 @@ export async function sessionInvoice(sessionId: string, waitMs = INVOICE_WAIT_MS
   return invoice;
 }
 
+/** URL del PDF solo si la factura ya figura como pagada; si no, el PDF diría "Importe adeudado". */
+export function paidPdf(invoice: Stripe.Invoice): string | null {
+  return invoice.status === 'paid' ? (invoice.invoice_pdf ?? null) : null;
+}
+
 /** Tiempo máximo de espera a que la factura figure como pagada (los tests lo ponen a 0). */
 export let INVOICE_WAIT_MS = 4500; // corto: las funciones de Netlify cortan a los 10 s
 export function setInvoiceWaitForTests(ms: number) {
@@ -313,7 +318,7 @@ export async function confirmBooking(bookingId: string, sessionId: string): Prom
   const patch: Partial<Booking> = { holdExpiresUtc: null };
   if (invoice) {
     patch.stripeInvoiceId = invoice.id ?? null;
-    patch.invoicePdfUrl = invoice.invoice_pdf ?? null;
+    patch.invoicePdfUrl = paidPdf(invoice);
     patch.invoiceUrl = invoice.hosted_invoice_url ?? null;
   }
   await finalizeBooking(bookingId, patch, lateAfterCancel);
@@ -385,7 +390,7 @@ export async function sendConfirmationEmails(b: Booking, checkOverlap = false): 
     ? `<p><a href="${escapeHtml(b.zoomJoinUrl)}" style="background:#FFA514;color:#0F2A3A;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:bold">Entrar en la videollamada</a></p><p style="font-size:13px;color:#33505F">Se abre en el navegador, sin instalar nada. Desde el móvil puede pedirte instalar la app gratuita Jitsi Meet.</p>`
     : `<p>Te enviaremos el enlace de la videollamada antes de la sesión.</p>`;
   const invoiceLink = b.invoiceUrl
-    ? `<p>Puedes ver y descargar tu factura aquí: <a href="${escapeHtml(b.invoiceUrl)}">factura</a>. También va adjunta en PDF.</p>`
+    ? `<p>Puedes ver y descargar tu factura aquí: <a href="${escapeHtml(b.invoiceUrl)}">factura</a>.${b.invoicePdfUrl ? ' También va adjunta en PDF.' : ''}</p>`
     : '';
   const isGift = b.amountCents === 0;
   const paidLine = isGift ? 'Pagado con tarjeta regalo' : `Total pagado: ${formatEuros(b.amountCents)}`;

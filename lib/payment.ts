@@ -11,6 +11,7 @@ import {
   invoiceDataParams,
   invoiceFields,
   paymentMethodParams,
+  paidPdf,
   sessionInvoice,
   siteUrl,
   transferInstructionsUrl,
@@ -178,7 +179,7 @@ export async function confirmPayment(id: string, sessionId: string): Promise<voi
     const invoice = await sessionInvoice(sessionId);
     if (invoice) {
       await exec(`UPDATE payments SET invoice_pdf_url = ?, invoice_url = ? WHERE id = ?`, [
-        invoice.invoice_pdf ?? null,
+        paidPdf(invoice),
         invoice.hosted_invoice_url ?? null,
         id,
       ]);
@@ -187,7 +188,7 @@ export async function confirmPayment(id: string, sessionId: string): Promise<voi
   }
   const attachments = await invoiceAttachment(p.invoicePdfUrl);
   const invoiceLink = p.invoiceUrl
-    ? `<p>Puedes ver y descargar tu factura aquí: <a href="${escapeHtml(p.invoiceUrl)}">factura</a>. También va adjunta en PDF.</p>`
+    ? `<p>Puedes ver y descargar tu factura aquí: <a href="${escapeHtml(p.invoiceUrl)}">factura</a>.${p.invoicePdfUrl ? ' También va adjunta en PDF.' : ''}</p>`
     : '';
   await sendMail({
     to: p.email,

@@ -13,6 +13,7 @@ import {
   invoiceDataParams,
   invoiceFields,
   paymentMethodParams,
+  paidPdf,
   sessionInvoice,
   siteUrl,
   transferInstructionsUrl,
@@ -244,7 +245,7 @@ export async function confirmGift(id: string, sessionId: string, now = DateTime.
     const invoice = await sessionInvoice(sessionId);
     if (invoice) {
       await exec(`UPDATE gifts SET invoice_pdf_url = ?, invoice_url = ? WHERE id = ?`, [
-        invoice.invoice_pdf ?? null,
+        paidPdf(invoice),
         invoice.hosted_invoice_url ?? null,
         id,
       ]);
@@ -285,7 +286,7 @@ async function sendGiftEmails(g: Gift) {
       <p>Gracias por tu compra. Aquí tienes la tarjeta regalo: reenvía este email o comparte el código con
       ${escapeHtml(g.recipientName)}. Con él podrá elegir el día y la hora de su sesión.</p>
       ${giftCardHtml(g)}
-      ${g.invoiceUrl ? `<p>Tu factura: <a href="${escapeHtml(g.invoiceUrl)}">ver factura</a>. También va adjunta en PDF.</p>` : ''}`),
+      ${g.invoiceUrl ? `<p>Tu factura: <a href="${escapeHtml(g.invoiceUrl)}">ver factura</a>.${g.invoicePdfUrl ? ' También va adjunta en PDF.' : ''}</p>` : ''}`),
     attachments,
   });
   await sendMail({
